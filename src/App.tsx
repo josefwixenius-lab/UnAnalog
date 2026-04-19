@@ -60,6 +60,7 @@ import { SongChain } from './components/SongChain';
 import { ChordInput } from './components/ChordInput';
 import { MidiImport } from './components/MidiImport';
 import { Manual } from './components/Manual';
+import { QuickActions } from './components/QuickActions';
 import { importTrackToActive } from './engine/midiImport';
 import { downloadPatternAsMidi } from './engine/midiExport';
 import type { ImportedFile, ImportedTrack, QuantResolution } from './engine/midiImport';
@@ -586,26 +587,9 @@ export default function App() {
           />
         </section>
 
-        <section className="panel panel--steps">
-          <div className="panel__context">
-            <span className="panel__context-arrow">→</span>
-            <span className="panel__context-name">{activeTrack.name}</span>
-            <span className="panel__context-hint">
-              pitch {activeTrack.pitchSteps.length} · gate {activeTrack.gateSteps.length}
-              {activeTrack.pitchSteps.length !== activeTrack.gateSteps.length ? ' · polymeter' : ''}
-            </span>
-          </div>
-          <PitchTrack
-            pattern={pattern}
-            track={activeTrack}
-            currentStep={activeSteps.pitch}
-            onChangeTrack={onChangeActiveTrack}
-          />
-          <GateTrack
-            track={activeTrack}
-            currentStep={activeSteps.gate}
-            onChangeTrack={onChangeActiveTrack}
-          />
+        <section className="panel panel--chord">
+          <ChordInput activeTrackName={activeTrack.name} onChord={onChord} />
+          <MidiImport activeTrackName={activeTrack.name} onImport={onMidiImport} />
         </section>
 
         <section className="panel panel--tools">
@@ -636,9 +620,32 @@ export default function App() {
           />
         </section>
 
-        <section className="panel panel--chord">
-          <ChordInput activeTrackName={activeTrack.name} onChord={onChord} />
-          <MidiImport activeTrackName={activeTrack.name} onImport={onMidiImport} />
+        <section className="panel panel--steps">
+          <div className="panel__context">
+            <span className="panel__context-arrow">→</span>
+            <span className="panel__context-name">{activeTrack.name}</span>
+            <span className="panel__context-hint">
+              pitch {activeTrack.pitchSteps.length} · gate {activeTrack.gateSteps.length}
+              {activeTrack.pitchSteps.length !== activeTrack.gateSteps.length ? ' · polymeter' : ''}
+            </span>
+            <QuickActions
+              onClearGates={onClearGates}
+              onAllGates={onAllGates}
+              onRandomizePitch={onRandomizePitch}
+              onMutate={onMutate}
+            />
+          </div>
+          <PitchTrack
+            pattern={pattern}
+            track={activeTrack}
+            currentStep={activeSteps.pitch}
+            onChangeTrack={onChangeActiveTrack}
+          />
+          <GateTrack
+            track={activeTrack}
+            currentStep={activeSteps.gate}
+            onChangeTrack={onChangeActiveTrack}
+          />
         </section>
       </div>
 
