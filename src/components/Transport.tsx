@@ -19,6 +19,12 @@ type Props = {
   externalBpm: number | null;
   externalListening: boolean;
   externalInputAvailable: boolean;
+  masterDb: number;
+  onMasterDbChange: (v: number) => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 };
 
 export function Transport({
@@ -40,6 +46,12 @@ export function Transport({
   externalBpm,
   externalListening,
   externalInputAvailable,
+  masterDb,
+  onMasterDbChange,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: Props) {
   const isExternal = clockSource === 'external';
   const displayTempo = isExternal
@@ -179,6 +191,40 @@ export function Transport({
           <span>⏱ Clock ut</span>
         </label>
       )}
+
+      <label className="field field--master" title="Master-volym i dB — en mjuk brickwall-limiter ligger efter så det aldrig clippar även när du drar upp.">
+        <span>Master</span>
+        <input
+          type="range"
+          min={-30}
+          max={6}
+          step={1}
+          value={masterDb}
+          onChange={(e) => onMasterDbChange(Number(e.target.value))}
+        />
+        <span className="unit">
+          {masterDb > 0 ? `+${masterDb}` : masterDb} dB
+        </span>
+      </label>
+
+      <div className="undo-group" role="group" aria-label="Ångra/gör om">
+        <button
+          className="btn btn--undo"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="Ångra (Cmd/Ctrl+Z)"
+        >
+          ↶
+        </button>
+        <button
+          className="btn btn--redo"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="Gör om (Cmd/Ctrl+Shift+Z)"
+        >
+          ↷
+        </button>
+      </div>
     </div>
   );
 }

@@ -15,6 +15,9 @@ export interface Voice {
   ): void;
   setVolume(deltaDb: number): void;
   setLfo(lfo: TrackLfo): void;
+  /** Ansluter voicens output till en extern node (t.ex. TrackFxChain-input). */
+  connectOutput(dest: Tone.InputNode): void;
+  disconnectOutput(): void;
   dispose(): void;
 }
 
@@ -82,6 +85,7 @@ class SynthVoice implements Voice {
   private baseDb: number;
   private baseFilter: number;
   private lfoRig: LfoRig;
+  private currentDest: Tone.InputNode | null = null;
 
   constructor(p: SynthParams) {
     this.baseDb = p.volumeDb;
@@ -95,8 +99,23 @@ class SynthVoice implements Voice {
     });
     this.synth.connect(this.filter);
     this.filter.connect(this.volume);
-    this.volume.toDestination();
     this.lfoRig = new LfoRig(this.filter, this.volume, this.baseFilter);
+  }
+  connectOutput(dest: Tone.InputNode) {
+    if (this.currentDest === dest) return;
+    this.disconnectOutput();
+    this.volume.connect(dest);
+    this.currentDest = dest;
+  }
+  disconnectOutput() {
+    if (this.currentDest) {
+      try {
+        this.volume.disconnect(this.currentDest as Tone.ToneAudioNode);
+      } catch {
+        // ignore — mål kan redan vara disposed
+      }
+      this.currentDest = null;
+    }
   }
   trigger(
     midi: number,
@@ -126,6 +145,7 @@ class SynthVoice implements Voice {
   dispose() {
     this.lfoRig.dispose();
     this.synth.releaseAll();
+    this.disconnectOutput();
     this.synth.disconnect();
     this.synth.dispose();
     this.filter.disconnect();
@@ -150,6 +170,7 @@ class NoiseVoice implements Voice {
   private baseDb: number;
   private baseFilter: number;
   private lfoRig: LfoRig;
+  private currentDest: Tone.InputNode | null = null;
 
   constructor(p: NoiseParams) {
     this.baseDb = p.volumeDb;
@@ -162,8 +183,23 @@ class NoiseVoice implements Voice {
     });
     this.synth.connect(this.filter);
     this.filter.connect(this.volume);
-    this.volume.toDestination();
     this.lfoRig = new LfoRig(this.filter, this.volume, this.baseFilter);
+  }
+  connectOutput(dest: Tone.InputNode) {
+    if (this.currentDest === dest) return;
+    this.disconnectOutput();
+    this.volume.connect(dest);
+    this.currentDest = dest;
+  }
+  disconnectOutput() {
+    if (this.currentDest) {
+      try {
+        this.volume.disconnect(this.currentDest as Tone.ToneAudioNode);
+      } catch {
+        // ignore
+      }
+      this.currentDest = null;
+    }
   }
   trigger(
     _midi: number,
@@ -187,6 +223,7 @@ class NoiseVoice implements Voice {
   }
   dispose() {
     this.lfoRig.dispose();
+    this.disconnectOutput();
     this.synth.disconnect();
     this.synth.dispose();
     this.filter.disconnect();

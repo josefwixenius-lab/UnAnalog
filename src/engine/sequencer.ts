@@ -2,6 +2,7 @@ import * as Tone from 'tone';
 import type { Pattern, TrigCondition, VoiceKind } from './types';
 import { degreeToMidi } from './scales';
 import { createVoice, type Voice } from './voices';
+import { TrackFxChain } from './audioBus';
 
 export type NoteEvent = {
   trackId: string;
@@ -32,6 +33,7 @@ type TrackRuntime = {
 type VoiceEntry = {
   kind: VoiceKind;
   voice: Voice;
+  fxChain: TrackFxChain;
 };
 
 function evalCondition(c: TrigCondition, rt: TrackRuntime, fill: boolean): boolean {
@@ -110,27 +112,36 @@ export class Sequencer {
     for (const t of p.tracks) {
       seen.add(t.id);
       const existing = this.voices.get(t.id);
+      const fx = t.fx ?? { delay: 0, reverb: 0, saturation: 0 };
       if (!existing || existing.kind !== t.voice) {
         existing?.voice.dispose();
+        existing?.fxChain.dispose();
         const voice = createVoice(t.voice);
         voice.setVolume(t.volumeDb);
         voice.setLfo(t.lfo);
-        this.voices.set(t.id, { kind: t.voice, voice });
+        const fxChain = new TrackFxChain(fx);
+        voice.connectOutput(fxChain.getInput());
+        this.voices.set(t.id, { kind: t.voice, voice, fxChain });
       } else {
         existing.voice.setVolume(t.volumeDb);
         existing.voice.setLfo(t.lfo);
+        existing.fxChain.setFx(fx);
       }
     }
     for (const [id, v] of this.voices) {
       if (!seen.has(id)) {
         v.voice.dispose();
+        v.fxChain.dispose();
         this.voices.delete(id);
       }
     }
   }
 
   private disposeAllVoices() {
-    for (const v of this.voices.values()) v.voice.dispose();
+    for (const v of this.voices.values()) {
+      v.voice.dispose();
+      v.fxChain.dispose();
+    }
     this.voices.clear();
   }
 

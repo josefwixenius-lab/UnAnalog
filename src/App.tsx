@@ -8,9 +8,12 @@ import {
   applyEuclideanToActive,
   applyStyleToActive,
   clearActiveGates,
+  copyActiveRow,
   humanizeNudgeActive,
   mutateActiveTrack,
+  pasteRowToActive,
   randomizeActivePitch,
+  randomizePatternByStyle,
   removeTrack,
   resetNudgeActive,
   resetOctaveActiveTrack,
@@ -21,7 +24,7 @@ import {
   updateActiveTrack,
   updateTrackById,
 } from './engine/patterns';
-import type { ArpDirection } from './engine/patterns';
+import type { ArpDirection, StepRowClipboard } from './engine/patterns';
 import {
   getMidiInputs,
   getMidiOutputs,
@@ -34,7 +37,7 @@ import {
 } from './engine/midi';
 import type { MidiIn, MidiOut } from './engine/midi';
 import * as Tone from 'tone';
-import type { Pattern, StyleName, Track, TrackLfo } from './engine/types';
+import type { Pattern, StyleName, Track, TrackFx, TrackLfo } from './engine/types';
 import type { Bank, SlotId } from './engine/bank';
 import {
   clearSlot,
@@ -63,10 +66,24 @@ import { QuickActions } from './components/QuickActions';
 import { importTrackToActive } from './engine/midiImport';
 import { downloadPatternAsMidi } from './engine/midiExport';
 import type { ImportedFile, ImportedTrack, QuantResolution } from './engine/midiImport';
+import { setMasterVolumeDb } from './engine/audioBus';
+import { useUndoable } from './engine/useUndo';
 import { APP_META } from './meta';
 
 export default function App() {
-  const [bank, setBank] = useState<Bank>(() => loadBank() ?? emptyBank());
+  // Bank ligger i en undoable-hook: `setBank` loggar i historik (Cmd+Z undo)
+  // medan `setBankSilent` används för engine-automation (bar-sync slotbyte,
+  // song-mode-växling, import) som inte ska skapa undo-steg.
+  const {
+    state: bank,
+    set: setBank,
+    replace: setBankSilent,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useUndoable<Bank>(() => loadBank() ?? emptyBank());
+  const [clipboard, setClipboard] = useState<StepRowClipboard | null>(null);
   const [playing, setPlaying] = useState(false);
   const [audible, setAudible] = useState(true);
   const [currentSteps, setCurrentSteps] = useState<Record<string, { pitch: number; gate: number }>>(
@@ -161,7 +178,8 @@ export default function App() {
 
     const queued = queuedSlotRef.current;
     if (queued) {
-      setBank((cur) => setActiveSlot(cur, queued));
+      // Engine-automatik — ska INTE vara ett undo-steg
+      setBankSilent(setActiveSlot(b, queued));
       setQueuedSlot(null);
       return;
     }
@@ -172,10 +190,10 @@ export default function App() {
       songIndexRef.current = nextIdx;
       setSongIndex(nextIdx);
       if (b.slots[nextSlot] && b.activeSlot !== nextSlot) {
-        setBank((cur) => setActiveSlot(cur, nextSlot));
+        setBankSilent(setActiveSlot(b, nextSlot));
       }
     }
-  }, []);
+  }, [setBankSilent]);
 
   const seqRef = useRef<Sequencer | null>(null);
   if (seqRef.current === null) {
@@ -207,6 +225,12 @@ export default function App() {
   useEffect(() => {
     seqRef.current!.setAudible(audible);
   }, [audible]);
+
+  useEffect(() => {
+    // Master-volymen är global (Bank-nivå, inte Pattern-nivå) så att den inte
+    // hoppar när man bytt slot.
+    setMasterVolumeDb(bank.masterDb ?? 0);
+  }, [bank.masterDb]);
 
   useEffect(() => {
     const id = window.setTimeout(() => saveBank(bank), 500);
@@ -304,21 +328,24 @@ export default function App() {
         songIndexRef.current = 0;
         const first = bankRef.current.song[0];
         if (first && bankRef.current.slots[first] && bankRef.current.activeSlot !== first) {
-          setBank((cur) => setActiveSlot(cur, first));
+          setBankSilent(setActiveSlot(bankRef.current, first));
         }
       }
       await seqRef.current!.start();
       setPlaying(true);
     }
-  }, [playing, pattern.tracks, clockSource, externalListening, externalBpm]);
+  }, [playing, pattern.tracks, clockSource, externalListening, externalBpm, setBankSilent]);
 
-  const updatePattern = useCallback((next: Pattern | ((p: Pattern) => Pattern)) => {
-    setBank((b) => {
-      const cur = getActivePattern(b);
-      const nextP = typeof next === 'function' ? (next as (p: Pattern) => Pattern)(cur) : next;
-      return setActivePattern(b, nextP);
-    });
-  }, []);
+  const updatePattern = useCallback(
+    (next: Pattern | ((p: Pattern) => Pattern)) => {
+      setBank((b) => {
+        const cur = getActivePattern(b);
+        const nextP = typeof next === 'function' ? (next as (p: Pattern) => Pattern)(cur) : next;
+        return setActivePattern(b, nextP);
+      });
+    },
+    [setBank],
+  );
 
   const onChangeActiveTrack = useCallback(
     (fn: (t: Track) => Track) => updatePattern((p) => updateActiveTrack(p, fn)),
@@ -343,6 +370,10 @@ export default function App() {
 
   const onStyle = useCallback(
     (style: StyleName) => updatePattern((p) => applyStyleToActive(p, style)),
+    [updatePattern],
+  );
+  const onRandomizePattern = useCallback(
+    (style: StyleName) => updatePattern((p) => randomizePatternByStyle(p, style)),
     [updatePattern],
   );
   const onMutate = useCallback(() => updatePattern((p) => mutateActiveTrack(p, 0.25)), [updatePattern]);
@@ -389,6 +420,41 @@ export default function App() {
     [updatePattern],
   );
 
+  const onChangeFx = useCallback(
+    (patch: Partial<TrackFx>) =>
+      updatePattern((p) =>
+        updateActiveTrack(p, (t) => ({
+          ...t,
+          fx: {
+            delay: patch.delay ?? t.fx?.delay ?? 0,
+            reverb: patch.reverb ?? t.fx?.reverb ?? 0,
+            saturation: patch.saturation ?? t.fx?.saturation ?? 0,
+          },
+        })),
+      ),
+    [updatePattern],
+  );
+
+  const onMasterDbChange = useCallback(
+    (v: number) => setBank((b) => ({ ...b, masterDb: v })),
+    [setBank],
+  );
+
+  const onCopyPitch = useCallback(() => {
+    const clip = copyActiveRow(pattern, 'pitch');
+    if (clip) setClipboard(clip);
+  }, [pattern]);
+
+  const onCopyGate = useCallback(() => {
+    const clip = copyActiveRow(pattern, 'gate');
+    if (clip) setClipboard(clip);
+  }, [pattern]);
+
+  const onPasteRow = useCallback(() => {
+    if (!clipboard) return;
+    updatePattern((p) => pasteRowToActive(p, clipboard));
+  }, [clipboard, updatePattern]);
+
   const onHumanizeNudge = useCallback(
     (amount: number) => updatePattern((p) => humanizeNudgeActive(p, amount)),
     [updatePattern],
@@ -421,13 +487,16 @@ export default function App() {
         return setActiveSlot(b, id);
       });
     },
-    [playing, syncMode],
+    [playing, syncMode, setBank],
   );
 
-  const onClearSlot = useCallback((id: SlotId) => {
-    setBank((b) => clearSlot(b, id));
-    setQueuedSlot((q) => (q === id ? null : q));
-  }, []);
+  const onClearSlot = useCallback(
+    (id: SlotId) => {
+      setBank((b) => clearSlot(b, id));
+      setQueuedSlot((q) => (q === id ? null : q));
+    },
+    [setBank],
+  );
 
   const onExport = useCallback(
     (customName: string | null) => downloadBankFile(bank, customName),
@@ -440,63 +509,188 @@ export default function App() {
     [pattern],
   );
 
-  const onImportFile = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = typeof reader.result === 'string' ? reader.result : '';
-      const imported = importBankJson(text);
-      if (imported) {
-        setBank(imported);
-        setQueuedSlot(null);
-        setSongIndex(0);
-      } else {
-        alert('Kunde inte läsa JSON-filen – fel format?');
-      }
-    };
-    reader.readAsText(file);
-  }, []);
+  const onImportFile = useCallback(
+    (file: File) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = typeof reader.result === 'string' ? reader.result : '';
+        const imported = importBankJson(text);
+        if (imported) {
+          // Import nollar historiken — annars kan användaren "ångra" sig tillbaka
+          // till föregående bank vilket vore förvirrande.
+          setBankSilent(imported);
+          setQueuedSlot(null);
+          setSongIndex(0);
+        } else {
+          alert('Kunde inte läsa JSON-filen – fel format?');
+        }
+      };
+      reader.readAsText(file);
+    },
+    [setBankSilent],
+  );
 
   const onToggleSongMode = useCallback(() => {
     setBank((b) => ({ ...b, songMode: !b.songMode }));
     setSongIndex(0);
-  }, []);
+  }, [setBank]);
 
-  const onSetSongStep = useCallback((index: number, slot: SlotId) => {
-    setBank((b) => {
-      if (!b.slots[slot]) return b;
-      const song = b.song.slice();
-      song[index] = slot;
-      return { ...b, song };
-    });
-  }, []);
+  const onSetSongStep = useCallback(
+    (index: number, slot: SlotId) => {
+      setBank((b) => {
+        if (!b.slots[slot]) return b;
+        const song = b.song.slice();
+        song[index] = slot;
+        return { ...b, song };
+      });
+    },
+    [setBank],
+  );
 
   const onAddSongStep = useCallback(() => {
     setBank((b) => {
       const last = b.song[b.song.length - 1] ?? b.activeSlot;
       return { ...b, song: [...b.song, last] };
     });
-  }, []);
+  }, [setBank]);
 
-  const onRemoveSongStep = useCallback((index: number) => {
-    setBank((b) => {
-      if (b.song.length <= 1) return b;
-      const song = b.song.filter((_, i) => i !== index);
-      return { ...b, song };
-    });
-    setSongIndex((i) => (i >= index && i > 0 ? i - 1 : i));
-  }, []);
+  const onRemoveSongStep = useCallback(
+    (index: number) => {
+      setBank((b) => {
+        if (b.song.length <= 1) return b;
+        const song = b.song.filter((_, i) => i !== index);
+        return { ...b, song };
+      });
+      setSongIndex((i) => (i >= index && i > 0 ? i - 1 : i));
+    },
+    [setBank],
+  );
 
-  const onJumpSongStep = useCallback((index: number) => {
-    if (!bankRef.current.songMode) return;
-    const slot = bankRef.current.song[index];
-    if (!slot || !bankRef.current.slots[slot]) return;
-    songIndexRef.current = index;
-    setSongIndex(index);
-    setBank((cur) => setActiveSlot(cur, slot));
-  }, []);
+  const onJumpSongStep = useCallback(
+    (index: number) => {
+      if (!bankRef.current.songMode) return;
+      const slot = bankRef.current.song[index];
+      if (!slot || !bankRef.current.slots[slot]) return;
+      songIndexRef.current = index;
+      setSongIndex(index);
+      setBankSilent(setActiveSlot(bankRef.current, slot));
+    },
+    [setBankSilent],
+  );
 
   const activeTrack = pattern.tracks.find((t) => t.id === pattern.activeTrackId) ?? pattern.tracks[0];
   const activeSteps = currentSteps[activeTrack.id] ?? { pitch: -1, gate: -1 };
+
+  // --- Tangent-shortcuts -----------------------------------------------------
+  // Vi läser alltid senaste värdena via refs så vi inte behöver re-binda
+  // listenern vid varje tangenttryck.
+  const togglePlayRef = useRef(togglePlay);
+  useEffect(() => {
+    togglePlayRef.current = togglePlay;
+  }, [togglePlay]);
+  const undoRef = useRef(undo);
+  const redoRef = useRef(redo);
+  useEffect(() => {
+    undoRef.current = undo;
+    redoRef.current = redo;
+  }, [undo, redo]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Låt fokus på input/select/textarea/contenteditable sköta sin egen
+      // tangentlogik — annars kan man inte skriva ett filnamn eller ändra
+      // ett fält utan att shortcut-systemet slukar inputen.
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA' ||
+          tag === 'SELECT' ||
+          target.isContentEditable
+        ) {
+          // Cmd/Ctrl+Z är special: den ska fungera för textfält själv (inbyggt)
+          // men space ska absolut inte trigga play när man står i tempo-fältet.
+          return;
+        }
+      }
+
+      const cmd = e.metaKey || e.ctrlKey;
+      const k = e.key;
+
+      // Cmd/Ctrl+Z — ångra, Cmd/Ctrl+Shift+Z (eller Cmd+Y) — gör om
+      if (cmd && (k === 'z' || k === 'Z')) {
+        e.preventDefault();
+        if (e.shiftKey) redoRef.current();
+        else undoRef.current();
+        return;
+      }
+      if (cmd && (k === 'y' || k === 'Y')) {
+        e.preventDefault();
+        redoRef.current();
+        return;
+      }
+
+      // Resten är utan modifier
+      if (cmd || e.altKey) return;
+
+      if (k === ' ' || k === 'Spacebar') {
+        e.preventDefault();
+        void togglePlayRef.current();
+        return;
+      }
+
+      // 1-8 → byt slot A-H
+      if (k >= '1' && k <= '8') {
+        const idx = parseInt(k, 10) - 1;
+        const slot = (['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const)[idx];
+        if (slot) {
+          e.preventDefault();
+          onSelectSlot(slot);
+        }
+        return;
+      }
+
+      // Q = mute toggle aktivt spår, W = solo toggle
+      if (k === 'q' || k === 'Q') {
+        e.preventDefault();
+        onChangeTrackById(activeTrack.id, { enabled: !activeTrack.enabled });
+        return;
+      }
+      if (k === 'w' || k === 'W') {
+        e.preventDefault();
+        onChangeTrackById(activeTrack.id, { solo: !activeTrack.solo });
+        return;
+      }
+
+      // Z = föregående spår, X = nästa spår
+      if (k === 'z' || k === 'Z') {
+        e.preventDefault();
+        const idx = pattern.tracks.findIndex((t) => t.id === pattern.activeTrackId);
+        const prev = pattern.tracks[(idx - 1 + pattern.tracks.length) % pattern.tracks.length];
+        if (prev) onSelectTrack(prev.id);
+        return;
+      }
+      if (k === 'x' || k === 'X') {
+        e.preventDefault();
+        const idx = pattern.tracks.findIndex((t) => t.id === pattern.activeTrackId);
+        const next = pattern.tracks[(idx + 1) % pattern.tracks.length];
+        if (next) onSelectTrack(next.id);
+        return;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [
+    activeTrack.id,
+    activeTrack.enabled,
+    activeTrack.solo,
+    pattern.tracks,
+    pattern.activeTrackId,
+    onSelectSlot,
+    onChangeTrackById,
+    onSelectTrack,
+  ]);
 
   return (
     <div className="app">
@@ -530,6 +724,12 @@ export default function App() {
           externalBpm={externalBpm}
           externalListening={externalListening}
           externalInputAvailable={midiIns.length > 0}
+          masterDb={bank.masterDb ?? 0}
+          onMasterDbChange={onMasterDbChange}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={undo}
+          onRedo={redo}
         />
       </header>
 
@@ -604,7 +804,7 @@ export default function App() {
         </section>
 
         <section className="panel panel--tools">
-          <StylePresets onApply={onStyle} />
+          <StylePresets onApply={onStyle} onRandomize={onRandomizePattern} />
           <Tools
             activeTrackName={activeTrack.name}
             activeVoice={activeTrack.voice}
@@ -614,6 +814,7 @@ export default function App() {
             octaveShift={activeTrack.octaveShift}
             lfo={activeTrack.lfo}
             velocityJitter={activeTrack.velocityJitter ?? 0}
+            fx={activeTrack.fx ?? { delay: 0, reverb: 0, saturation: 0 }}
             onResize={onResize}
             onMutate={onMutate}
             onRandomizePitch={onRandomizePitch}
@@ -628,6 +829,7 @@ export default function App() {
             onChangeVelocityJitter={onChangeVelocityJitter}
             onHumanizeNudge={onHumanizeNudge}
             onResetNudge={onResetNudge}
+            onChangeFx={onChangeFx}
           />
         </section>
 
@@ -658,6 +860,10 @@ export default function App() {
               onAllGates={onAllGates}
               onRandomizePitch={onRandomizePitch}
               onMutate={onMutate}
+              onCopyPitch={onCopyPitch}
+              onCopyGate={onCopyGate}
+              onPaste={onPasteRow}
+              clipboard={clipboard}
             />
           </div>
           <StepEditor

@@ -57,6 +57,18 @@ export type TrackLfo = {
   shape: LfoShape;
 };
 
+/**
+ * Per-spår FX-send. Varje värde är 0–1 (0 = torr, 1 = full effekt).
+ * - `delay`: ping-pong, sync:ad 8n
+ * - `reverb`: stor hall
+ * - `saturation`: mjuk drive / tape
+ */
+export type TrackFx = {
+  delay: number;
+  reverb: number;
+  saturation: number;
+};
+
 export type Track = {
   id: string;
   name: string;
@@ -72,6 +84,7 @@ export type Track = {
   octaveShift: number;
   lfo: TrackLfo;
   velocityJitter: number;
+  fx: TrackFx;
 };
 
 export type Pattern = {

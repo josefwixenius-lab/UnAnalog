@@ -1,4 +1,4 @@
-import type { GateStep, Pattern, Track, TrackLfo } from './types';
+import type { GateStep, Pattern, Track, TrackFx, TrackLfo } from './types';
 import { emptyPattern, applyStyleToActive } from './patterns';
 
 function migrateGate(g: GateStep): GateStep {
@@ -21,12 +21,21 @@ function migrateTrack(t: Track): Track {
           shape: t.lfo.shape ?? 'sine',
         }
       : { target: 'off', rate: '4n', depth: 0.3, shape: 'sine' };
+  const fx: TrackFx =
+    t.fx && typeof t.fx === 'object'
+      ? {
+          delay: typeof t.fx.delay === 'number' ? t.fx.delay : 0,
+          reverb: typeof t.fx.reverb === 'number' ? t.fx.reverb : 0,
+          saturation: typeof t.fx.saturation === 'number' ? t.fx.saturation : 0,
+        }
+      : { delay: 0, reverb: 0, saturation: 0 };
   return {
     ...t,
     rotation: typeof t.rotation === 'number' ? t.rotation : 0,
     octaveShift: typeof t.octaveShift === 'number' ? t.octaveShift : 0,
     lfo,
     velocityJitter: typeof t.velocityJitter === 'number' ? t.velocityJitter : 0,
+    fx,
     gateSteps: Array.isArray(t.gateSteps) ? t.gateSteps.map(migrateGate) : t.gateSteps,
   };
 }
@@ -44,6 +53,8 @@ export type Bank = {
   activeSlot: SlotId;
   song: SlotId[];
   songMode: boolean;
+  /** Master-volym i dB (–30..+6). Global, delas mellan alla slots. */
+  masterDb: number;
 };
 
 const STORAGE_KEY = 'unanalog-sequencer-bank-v1';
@@ -65,7 +76,7 @@ function emptySlots(): Record<SlotId, Pattern | null> {
 export function emptyBank(): Bank {
   const slots = emptySlots();
   slots.A = applyStyleToActive(emptyPattern(), 'berlin');
-  return { slots, activeSlot: 'A', song: ['A'], songMode: false };
+  return { slots, activeSlot: 'A', song: ['A'], songMode: false, masterDb: 0 };
 }
 
 export function loadBank(): Bank | null {
@@ -92,7 +103,14 @@ export function loadBank(): Bank | null {
       ? parsed.song.filter((s): s is SlotId => SLOT_IDS.includes(s as SlotId))
       : [activeSlot];
     const songMode = Boolean(parsed.songMode);
-    return { slots, activeSlot, song: song.length > 0 ? song : [activeSlot], songMode };
+    const masterDb = typeof parsed.masterDb === 'number' ? parsed.masterDb : 0;
+    return {
+      slots,
+      activeSlot,
+      song: song.length > 0 ? song : [activeSlot],
+      songMode,
+      masterDb,
+    };
   } catch {
     return null;
   }
@@ -179,7 +197,14 @@ export function importBankJson(text: string): Bank | null {
       ? raw.song.filter((s: unknown): s is SlotId => SLOT_IDS.includes(s as SlotId))
       : [activeSlot];
     const songMode = Boolean(raw.songMode);
-    return { slots, activeSlot, song: song.length > 0 ? song : [activeSlot], songMode };
+    const masterDb = typeof raw.masterDb === 'number' ? raw.masterDb : 0;
+    return {
+      slots,
+      activeSlot,
+      song: song.length > 0 ? song : [activeSlot],
+      songMode,
+      masterDb,
+    };
   } catch {
     return null;
   }

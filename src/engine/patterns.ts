@@ -58,6 +58,7 @@ export function makeTrack(opts: TrackInit): Track {
     octaveShift: 0,
     lfo: { target: 'off', rate: '4n', depth: 0.3, shape: 'sine' },
     velocityJitter: 0,
+    fx: { delay: 0, reverb: 0, saturation: 0 },
   };
 }
 
@@ -504,4 +505,197 @@ export function applyStyleToActive(p: Pattern, style: StyleName): Pattern {
       );
     }
   }
+}
+
+/* ---------- Slumpa helt nytt pattern utifrån stil ---------- */
+
+type StyleProfile = {
+  scale: import('./types').ScaleName;
+  tempo: [number, number];
+  swing: [number, number];
+  /** Sannolikhet att ett gate blir aktivt per spår-typ. */
+  density: { bass: number; lead: number; hats: number; pad: number };
+  slidesEvery: number;
+  ratchetBias: number;
+  accentEvery: number;
+  octaveJumpChance: number;
+};
+
+const STYLE_PROFILES: Record<StyleName, StyleProfile> = {
+  ambient: {
+    scale: 'pentatonicMinor',
+    tempo: [72, 88],
+    swing: [0, 0.1],
+    density: { bass: 0.22, lead: 0.18, hats: 0.12, pad: 0.28 },
+    slidesEvery: 0,
+    ratchetBias: 0,
+    accentEvery: 0,
+    octaveJumpChance: 0.08,
+  },
+  acid: {
+    scale: 'phrygian',
+    tempo: [124, 132],
+    swing: [0, 0.12],
+    density: { bass: 0.7, lead: 0.55, hats: 0.75, pad: 0.25 },
+    slidesEvery: 3,
+    ratchetBias: 0.18,
+    accentEvery: 4,
+    octaveJumpChance: 0.15,
+  },
+  berlin: {
+    scale: 'minor',
+    tempo: [112, 122],
+    swing: [0, 0.08],
+    density: { bass: 0.85, lead: 0.45, hats: 0.7, pad: 0.3 },
+    slidesEvery: 0,
+    ratchetBias: 0.05,
+    accentEvery: 4,
+    octaveJumpChance: 0.18,
+  },
+  idm: {
+    scale: 'dorian',
+    tempo: [136, 148],
+    swing: [0.08, 0.22],
+    density: { bass: 0.45, lead: 0.38, hats: 0.65, pad: 0.25 },
+    slidesEvery: 0,
+    ratchetBias: 0.28,
+    accentEvery: 7,
+    octaveJumpChance: 0.22,
+  },
+  chillout: {
+    scale: 'pentatonicMajor',
+    tempo: [88, 102],
+    swing: [0.1, 0.28],
+    density: { bass: 0.5, lead: 0.35, hats: 0.5, pad: 0.28 },
+    slidesEvery: 0,
+    ratchetBias: 0.04,
+    accentEvery: 4,
+    octaveJumpChance: 0.1,
+  },
+};
+
+function randRange(min: number, max: number): number {
+  return min + Math.random() * (max - min);
+}
+
+function densityFor(voice: VoiceKind, profile: StyleProfile): number {
+  switch (voice) {
+    case 'bass':
+      return profile.density.bass;
+    case 'lead':
+    case 'saw':
+      return profile.density.lead;
+    case 'hats':
+      return profile.density.hats;
+    case 'pad':
+      return profile.density.pad;
+  }
+}
+
+function randomizeTrackForStyle(t: Track, profile: StyleProfile, scaleLen: number): Track {
+  const dens = densityFor(t.voice, profile);
+  const isDrum = t.voice === 'hats';
+  const isBass = t.voice === 'bass';
+
+  // Ton-pool: bas gillar grundton/5:a, lead/pad gillar fler steg
+  const tonePool = isBass
+    ? [0, 0, 0, 2, 4, 4, 6, 0]
+    : [0, 2, 3, 4, 5, 6, 0, 4, 2];
+
+  const pitchSteps: PitchStep[] = t.pitchSteps.map((_, i) => {
+    const deg = isDrum
+      ? 0
+      : tonePool[Math.floor(Math.random() * tonePool.length)] % scaleLen;
+    const octJump = Math.random() < profile.octaveJumpChance;
+    return {
+      scaleDegree: deg,
+      octaveOffset: octJump ? (Math.random() < 0.5 ? -1 : 1) : 0,
+      slide:
+        profile.slidesEvery > 0 && i % profile.slidesEvery === profile.slidesEvery - 1,
+    };
+  });
+
+  const gateSteps: GateStep[] = t.gateSteps.map((_, i) => {
+    const isHit = Math.random() < dens;
+    const ratchet =
+      Math.random() < profile.ratchetBias && isHit
+        ? 1 + Math.floor(Math.random() * 3) + 1 // 2..4
+        : 1;
+    const accent = profile.accentEvery > 0 && i % profile.accentEvery === 0;
+    return {
+      active: isHit,
+      gate: isBass ? 0.45 : 0.6,
+      probability: 0.85 + Math.random() * 0.15,
+      ratchet,
+      accent,
+      condition: 'always',
+      filterLock: null,
+      velocity: accent ? 0.95 : 0.75 + Math.random() * 0.15,
+      nudge: 0,
+    };
+  });
+
+  return {
+    ...t,
+    pitchSteps,
+    gateSteps,
+    rotation: 0,
+  };
+}
+
+/**
+ * Helt nytt pattern utifrån genre — skriver över ALLA spår, tempo, skala
+ * och swing. Till skillnad från `applyStyleToActive` som bara rör aktivt spår.
+ * Resultatet blir ett kul startfrö; användaren kan sen finputsa vidare.
+ */
+export function randomizePatternByStyle(p: Pattern, style: StyleName): Pattern {
+  const profile = STYLE_PROFILES[style];
+  const scale = profile.scale;
+  const scaleLen = scaleLength(scale);
+  const tempo = Math.round(randRange(profile.tempo[0], profile.tempo[1]));
+  const swing = Math.round(randRange(profile.swing[0], profile.swing[1]) * 100) / 100;
+  const tracks = p.tracks.map((t) => randomizeTrackForStyle(t, profile, scaleLen));
+  return {
+    ...p,
+    scale,
+    tempo,
+    swing,
+    tracks,
+  };
+}
+
+/* ---------- Copy / paste för pitch- eller gate-raden ---------- */
+
+export type StepRowKind = 'pitch' | 'gate';
+
+export type StepRowClipboard =
+  | { kind: 'pitch'; steps: PitchStep[] }
+  | { kind: 'gate'; steps: GateStep[] };
+
+export function copyActiveRow(p: Pattern, kind: StepRowKind): StepRowClipboard | null {
+  const t = p.tracks.find((tt) => tt.id === p.activeTrackId);
+  if (!t) return null;
+  if (kind === 'pitch') {
+    return { kind: 'pitch', steps: t.pitchSteps.map((s) => ({ ...s })) };
+  }
+  return { kind: 'gate', steps: t.gateSteps.map((s) => ({ ...s })) };
+}
+
+export function pasteRowToActive(p: Pattern, clip: StepRowClipboard): Pattern {
+  return updateActiveTrack(p, (t) => {
+    if (clip.kind === 'pitch') {
+      const src = clip.steps;
+      if (src.length === 0) return t;
+      return {
+        ...t,
+        pitchSteps: t.pitchSteps.map((_, i) => ({ ...src[i % src.length] })),
+      };
+    }
+    const src = clip.steps;
+    if (src.length === 0) return t;
+    return {
+      ...t,
+      gateSteps: t.gateSteps.map((_, i) => ({ ...src[i % src.length] })),
+    };
+  });
 }

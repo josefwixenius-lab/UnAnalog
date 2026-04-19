@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import type { LfoRate, LfoShape, LfoTarget, TrackLfo, VoiceKind } from '../engine/types';
+import type {
+  LfoRate,
+  LfoShape,
+  LfoTarget,
+  TrackFx,
+  TrackLfo,
+  VoiceKind,
+} from '../engine/types';
 
 type Props = {
   activeTrackName: string;
@@ -10,6 +17,7 @@ type Props = {
   octaveShift: number;
   lfo: TrackLfo;
   velocityJitter: number;
+  fx: TrackFx;
   onResize: (pitchLen: number, gateLen: number) => void;
   onMutate: () => void;
   onRandomizePitch: () => void;
@@ -24,6 +32,7 @@ type Props = {
   onChangeVelocityJitter: (v: number) => void;
   onHumanizeNudge: (amount: number) => void;
   onResetNudge: () => void;
+  onChangeFx: (patch: Partial<TrackFx>) => void;
 };
 
 export function Tools({
@@ -35,6 +44,7 @@ export function Tools({
   octaveShift,
   lfo,
   velocityJitter,
+  fx,
   onResize,
   onMutate,
   onRandomizePitch,
@@ -49,6 +59,7 @@ export function Tools({
   onChangeVelocityJitter,
   onHumanizeNudge,
   onResetNudge,
+  onChangeFx,
 }: Props) {
   const [euclid, setEuclid] = useState(5);
   const [humanizeAmount, setHumanizeAmount] = useState(0.08);
@@ -253,6 +264,51 @@ export function Tools({
         <small className="hint">
           Slumpar velocity ±X% kring inställt värde per spelning. Accent lägger till ovanpå.
         </small>
+      </div>
+
+      <div className="field-row field-row--fx">
+        <span className="group__label">Effekter</span>
+        <label className="field" title="Ping-pong-delay synkad till 1/8. Ger rum och rörelse.">
+          <span>Delay {Math.round(fx.delay * 100)}%</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.02}
+            value={fx.delay}
+            onChange={(e) => onChangeFx({ delay: Number(e.target.value) })}
+          />
+        </label>
+        <label className="field" title="Stor hall. Mjukar ljudet och sätter det i ett rum. Mycket reverb på tajta bas-spår blir lätt plottrigt.">
+          <span>Reverb {Math.round(fx.reverb * 100)}%</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.02}
+            value={fx.reverb}
+            onChange={(e) => onChangeFx({ reverb: Number(e.target.value) })}
+          />
+        </label>
+        <label className="field" title="Tape/drive-liknande mättnad. Ger analog varm energi; lyft på hats & bass.">
+          <span>Saturation {Math.round(fx.saturation * 100)}%</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.02}
+            value={fx.saturation}
+            onChange={(e) => onChangeFx({ saturation: Number(e.target.value) })}
+          />
+        </label>
+        <button
+          className="chip chip--reset"
+          onClick={() => onChangeFx({ delay: 0, reverb: 0, saturation: 0 })}
+          disabled={fx.delay === 0 && fx.reverb === 0 && fx.saturation === 0}
+          title="Nollställ alla effekter för detta spår"
+        >
+          ↺ Torrt
+        </button>
       </div>
 
       <div className="field-row field-row--humanize">

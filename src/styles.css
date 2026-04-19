@@ -1354,6 +1354,7 @@ body {
 .quick-actions {
   display: inline-flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin-left: auto;
 }
@@ -1366,6 +1367,97 @@ body {
   background: color-mix(in srgb, var(--accent-2) 18%, var(--bg-cell));
   border-color: var(--accent-2);
   color: var(--accent-2);
+}
+.quick-actions .tiny:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: var(--border);
+  color: var(--text-dim);
+  background: transparent;
+}
+.quick-actions__sep {
+  color: var(--text-dim);
+  opacity: 0.5;
+  padding: 0 2px;
+  font-size: 12px;
+}
+
+/* --- Master-volym + undo/redo i transport-raden --- */
+.field--master {
+  padding: 4px 10px 4px 12px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  gap: 8px;
+}
+.field--master input[type="range"] {
+  width: 110px;
+  accent-color: var(--accent);
+}
+.field--master .unit {
+  min-width: 48px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.undo-group {
+  display: inline-flex;
+  gap: 4px;
+}
+.btn--undo,
+.btn--redo {
+  min-width: 36px;
+  padding: 6px 10px;
+  font-size: 14px;
+  line-height: 1;
+}
+.btn--undo:disabled,
+.btn--redo:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  border-color: var(--border);
+}
+
+/* --- Genre-slump vid stilpresets --- */
+.chips--random {
+  margin-top: 6px;
+  align-items: center;
+  gap: 6px;
+}
+.chip--select {
+  padding: 4px 10px;
+  background: var(--bg-cell);
+  color: var(--text);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.chip--select:hover {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+.chip--random {
+  background: color-mix(in srgb, var(--accent-2) 16%, var(--bg-cell));
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+  font-weight: 600;
+}
+.chip--random:hover {
+  background: var(--accent-2);
+  color: #0b0d12;
+}
+
+/* --- Per-spår FX (delay / reverb / saturation) i Tools --- */
+.field-row--fx {
+  background: color-mix(in srgb, var(--accent-2) 5%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent-2) 30%, var(--border));
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 2px;
+}
+.field-row--fx .field {
+  min-width: 160px;
+}
+.field-row--fx input[type="range"] {
+  accent-color: var(--accent-2);
 }
 
 /* --- Kompakt vs Detaljerat läge i step-editorn --- */
