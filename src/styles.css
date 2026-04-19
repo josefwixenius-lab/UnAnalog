@@ -1450,9 +1450,348 @@ body {
   padding-top: 6px;
 }
 
+/* --- Composite steps: pitch + gate i samma kort med fällbar detalj ---
+   Varje kort rymmer not-namn, skalsteg, oktav, trigger, villkor och accent
+   i ett kompakt läge. Klick på ▾ fäller ut hela gate-bunten (glide, gate,
+   probability, velocity, nudge, ratchet, p-lock, extra-toner). Detta
+   eliminerar scrollen mellan pitch- och gate-raderna. */
+.step-editor {
+  width: 100%;
+}
+.step-editor__header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.step-editor__header h2 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+.composite-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.composite-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas:
+    'note note  octave'
+    'degree degree degree'
+    'gate  gate   gate'
+    'cond  cond   cond'
+    'dots  dots   dots'
+    'det   det    det';
+  gap: 4px 4px;
+  padding: 6px 6px 6px;
+  background: var(--bg-cell);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.08s ease, box-shadow 0.08s ease, transform 0.04s linear;
+}
+.composite-step.is-gate-active {
+  border-color: color-mix(in srgb, var(--on) 55%, var(--border));
+  background: color-mix(in srgb, var(--on) 6%, var(--bg-cell));
+}
+.composite-step.is-playing {
+  border-color: var(--playing);
+  box-shadow: 0 0 0 2px rgba(126, 231, 193, 0.25) inset;
+}
+.composite-step.has-plock {
+  box-shadow: inset 0 0 0 1px var(--accent-2);
+}
+.composite-step.has-chord {
+  box-shadow: inset 0 0 0 1px #b388ff;
+}
+.composite-step.has-chord.has-plock {
+  box-shadow: inset 0 0 0 1px #b388ff, inset 2px 0 0 0 var(--accent-2);
+}
+.composite-step.is-prob-low {
+  opacity: 0.85;
+}
+.composite-step.is-nudged {
+  outline: 1px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.composite-step__note {
+  grid-area: note;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-2);
+  letter-spacing: 0.04em;
+  text-align: left;
+  padding-left: 2px;
+}
+
+.composite-step__degree {
+  grid-area: degree;
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 3px;
+  font-size: 11px;
+}
+
+.composite-step__octave {
+  grid-area: octave;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.composite-step__octave .tiny {
+  padding: 0 5px;
+  min-width: 16px;
+  font-size: 11px;
+}
+.composite-step__octave span {
+  min-width: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.composite-step__gate {
+  grid-area: gate;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 3px 2px 2px;
+  margin-top: 2px;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.composite-step__trigger {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  min-width: 28px;
+}
+.composite-step__trigger.is-on {
+  color: var(--on);
+  border-color: var(--on);
+  background: rgba(126, 231, 193, 0.1);
+}
+.composite-step.is-prob-low .composite-step__trigger.is-on {
+  border-style: dashed;
+}
+
+.composite-step__accent {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.composite-step__accent input { accent-color: var(--accent); }
+
+.composite-step__expand {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  padding: 1px 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.composite-step__expand:hover {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+.composite-step__expand.is-on {
+  background: color-mix(in srgb, var(--accent-2) 20%, var(--bg));
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+
+.composite-step__condition {
+  grid-area: cond;
+  width: 100%;
+  background: var(--bg);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 3px;
+  font-size: 10px;
+}
+.composite-step.has-condition .composite-step__condition {
+  color: var(--accent-2);
+  border-color: var(--accent-2);
+}
+
+.composite-step__dots {
+  grid-area: dots;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 10px;
+}
+.composite-step__dots .dot {
+  font-size: 9px;
+  line-height: 1;
+  width: 10px;
+  height: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--bg-cell);
+}
+.composite-step__dots .dot--chord { background: #b388ff; }
+.composite-step__dots .dot--prob { background: var(--accent-2); }
+.composite-step__dots .dot--nudge { background: var(--accent); }
+.composite-step__dots .dot--plock {
+  background: var(--accent-2);
+  box-shadow: 0 0 0 1px var(--bg-cell);
+}
+.composite-step__dots .dot--ratchet {
+  background: var(--accent);
+  color: #0b0d12;
+  font-weight: 700;
+  font-size: 9px;
+  width: auto;
+  min-width: 12px;
+  padding: 0 3px;
+  border-radius: 4px;
+}
+
+.composite-step__details {
+  grid-area: det;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--border);
+  animation: composite-unfold 0.12s ease;
+}
+@keyframes composite-unfold {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.composite-step__slide {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.composite-step__slide input { accent-color: var(--accent); }
+
+.composite-step__mini {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.composite-step__mini input[type="range"] { width: 100%; }
+.composite-step__mini.is-prob span { color: var(--accent-2); }
+.composite-step__mini.is-vel  span { color: var(--text-dim); }
+.composite-step__mini.is-nudge span {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.composite-step__ratchet {
+  display: flex;
+  gap: 3px;
+  justify-content: space-between;
+}
+.composite-step__ratchet .tiny {
+  flex: 1;
+  padding: 1px 0;
+  font-size: 10px;
+  min-width: 0;
+}
+
+.composite-step__plock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.composite-step__plock input[type="range"] { accent-color: var(--accent-2); }
+.composite-step__plock.is-on .tiny {
+  background: var(--accent-2);
+  color: #0b0d12;
+  border-color: var(--accent-2);
+}
+
+.composite-step__chord {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 4px;
+  margin-top: 2px;
+  border-top: 1px dashed var(--border);
+}
+.composite-step__chord-note {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: #b388ff;
+}
+.composite-step__chord-note select {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: #b388ff;
+  border-radius: 4px;
+  padding: 1px 2px;
+  font-size: 10px;
+}
+.composite-step__chord-oct {
+  min-width: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.composite-step__chord-add {
+  font-size: 10px;
+  align-self: center;
+  opacity: 0.75;
+}
+.composite-step__chord-add:hover { opacity: 1; }
+.composite-step__chord-add:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Polymeter-notis: faller tillbaka till separata pitch/gate-rader */
+.polymeter-notice {
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border: 1px dashed color-mix(in srgb, var(--accent-2) 50%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-2) 6%, transparent);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.polymeter-notice strong {
+  color: var(--accent-2);
+  letter-spacing: 0.02em;
+}
+
 /* --- Mobil --- */
 @media (max-width: 640px) {
   .zone { padding: 8px 8px 10px; }
   .zone__sub { margin-left: 0; width: 100%; }
+  .composite-steps { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
 }
 

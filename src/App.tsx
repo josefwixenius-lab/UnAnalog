@@ -49,8 +49,7 @@ import {
 } from './engine/bank';
 import { Transport } from './components/Transport';
 import { KeyScale } from './components/KeyScale';
-import { PitchTrack } from './components/PitchTrack';
-import { GateTrack } from './components/GateTrack';
+import { StepEditor } from './components/StepEditor';
 import { Tools } from './components/Tools';
 import { MidiPicker } from './components/MidiPicker';
 import { StylePresets } from './components/StylePresets';
@@ -661,15 +660,12 @@ export default function App() {
               onMutate={onMutate}
             />
           </div>
-          <PitchTrack
+          <StepEditor
             pattern={pattern}
             track={activeTrack}
-            currentStep={activeSteps.pitch}
-            onChangeTrack={onChangeActiveTrack}
-          />
-          <GateTrack
-            track={activeTrack}
-            currentStep={activeSteps.gate}
+            pitchCurrent={activeSteps.pitch}
+            gateCurrent={activeSteps.gate}
+            detailMode={stepDetail}
             onChangeTrack={onChangeActiveTrack}
           />
         </section>
