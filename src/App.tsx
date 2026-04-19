@@ -61,6 +61,7 @@ import { ChordInput } from './components/ChordInput';
 import { MidiImport } from './components/MidiImport';
 import { Manual } from './components/Manual';
 import { importTrackToActive } from './engine/midiImport';
+import { downloadPatternAsMidi } from './engine/midiExport';
 import type { ImportedFile, ImportedTrack, QuantResolution } from './engine/midiImport';
 import { APP_META } from './meta';
 
@@ -421,6 +422,12 @@ export default function App() {
     [bank],
   );
 
+  const onExportMidi = useCallback(
+    (bars: number, customName: string | null) =>
+      downloadPatternAsMidi(pattern, { bars, fileName: customName, randomize: false }),
+    [pattern],
+  );
+
   const onImportFile = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -514,99 +521,126 @@ export default function App() {
         />
       </header>
 
-      <section className="panel panel--bank">
-        <PatternBank
-          bank={bank}
-          queuedSlot={queuedSlot}
-          syncMode={syncMode}
-          onSyncModeChange={setSyncMode}
-          onSelectSlot={onSelectSlot}
-          onClearSlot={onClearSlot}
-          onExport={onExport}
-          onImportFile={onImportFile}
-        />
-      </section>
+      <div className="zone zone--global">
+        <div className="zone__header">
+          <span className="zone__icon" aria-hidden>🌍</span>
+          <h2 className="zone__title">Global</h2>
+          <span className="zone__sub">påverkar hela låten</span>
+        </div>
 
-      <section className="panel panel--song">
-        <SongChain
-          bank={bank}
-          songIndex={songIndex}
-          onToggleMode={onToggleSongMode}
-          onSetStep={onSetSongStep}
-          onAddStep={onAddSongStep}
-          onRemoveStep={onRemoveSongStep}
-          onJumpTo={onJumpSongStep}
-        />
-      </section>
+        <section className="panel panel--keyscale">
+          <KeyScale
+            root={pattern.rootNote}
+            scale={pattern.scale}
+            baseOctave={pattern.baseOctave}
+            onRoot={(v) => updatePattern((p) => ({ ...p, rootNote: v }))}
+            onScale={(v) => updatePattern((p) => ({ ...p, scale: v }))}
+            onOctave={(v) => updatePattern((p) => ({ ...p, baseOctave: v }))}
+          />
+          <MidiPicker outputs={midiOuts} selectedId={selectedMidiId} onSelect={setSelectedMidiId} />
+        </section>
 
-      <section className="panel">
-        <KeyScale
-          root={pattern.rootNote}
-          scale={pattern.scale}
-          baseOctave={pattern.baseOctave}
-          onRoot={(v) => updatePattern((p) => ({ ...p, rootNote: v }))}
-          onScale={(v) => updatePattern((p) => ({ ...p, scale: v }))}
-          onOctave={(v) => updatePattern((p) => ({ ...p, baseOctave: v }))}
-        />
-        <MidiPicker outputs={midiOuts} selectedId={selectedMidiId} onSelect={setSelectedMidiId} />
-      </section>
+        <section className="panel panel--bank">
+          <PatternBank
+            bank={bank}
+            queuedSlot={queuedSlot}
+            syncMode={syncMode}
+            onSyncModeChange={setSyncMode}
+            onSelectSlot={onSelectSlot}
+            onClearSlot={onClearSlot}
+            onExport={onExport}
+            onExportMidi={onExportMidi}
+            onImportFile={onImportFile}
+          />
+        </section>
 
-      <section className="panel panel--trackstrip">
-        <TrackStrip
-          pattern={pattern}
-          onSelect={onSelectTrack}
-          onChangeTrack={onChangeTrackById}
-          onAdd={onAddTrack}
-          onRemove={onRemoveTrack}
-        />
-      </section>
+        <section className="panel panel--song">
+          <SongChain
+            bank={bank}
+            songIndex={songIndex}
+            onToggleMode={onToggleSongMode}
+            onSetStep={onSetSongStep}
+            onAddStep={onAddSongStep}
+            onRemoveStep={onRemoveSongStep}
+            onJumpTo={onJumpSongStep}
+          />
+        </section>
+      </div>
 
-      <section className="panel panel--chord">
-        <ChordInput activeTrackName={activeTrack.name} onChord={onChord} />
-        <MidiImport activeTrackName={activeTrack.name} onImport={onMidiImport} />
-      </section>
+      <div className="zone zone--track">
+        <div className="zone__header">
+          <span className="zone__icon" aria-hidden>🎛</span>
+          <h2 className="zone__title">
+            Aktivt spår: <strong>{activeTrack.name}</strong>
+          </h2>
+          <span className="zone__sub">per-spår parametrar (klicka ett spår för att byta)</span>
+        </div>
 
-      <section className="panel">
-        <StylePresets onApply={onStyle} />
-        <Tools
-          activeTrackName={activeTrack.name}
-          activeVoice={activeTrack.voice}
-          pitchLength={activeTrack.pitchSteps.length}
-          gateLength={activeTrack.gateSteps.length}
-          rotation={activeTrack.rotation}
-          octaveShift={activeTrack.octaveShift}
-          lfo={activeTrack.lfo}
-          velocityJitter={activeTrack.velocityJitter ?? 0}
-          onResize={onResize}
-          onMutate={onMutate}
-          onRandomizePitch={onRandomizePitch}
-          onClearGates={onClearGates}
-          onAllGates={onAllGates}
-          onEuclidean={onEuclidean}
-          onRotate={onRotate}
-          onResetRotation={onResetRotation}
-          onOctave={onOctave}
-          onResetOctave={onResetOctave}
-          onChangeLfo={onChangeLfo}
-          onChangeVelocityJitter={onChangeVelocityJitter}
-          onHumanizeNudge={onHumanizeNudge}
-          onResetNudge={onResetNudge}
-        />
-      </section>
+        <section className="panel panel--trackstrip">
+          <TrackStrip
+            pattern={pattern}
+            onSelect={onSelectTrack}
+            onChangeTrack={onChangeTrackById}
+            onAdd={onAddTrack}
+            onRemove={onRemoveTrack}
+          />
+        </section>
 
-      <section className="panel panel--tracks">
-        <PitchTrack
-          pattern={pattern}
-          track={activeTrack}
-          currentStep={activeSteps.pitch}
-          onChangeTrack={onChangeActiveTrack}
-        />
-        <GateTrack
-          track={activeTrack}
-          currentStep={activeSteps.gate}
-          onChangeTrack={onChangeActiveTrack}
-        />
-      </section>
+        <section className="panel panel--steps">
+          <div className="panel__context">
+            <span className="panel__context-arrow">→</span>
+            <span className="panel__context-name">{activeTrack.name}</span>
+            <span className="panel__context-hint">
+              pitch {activeTrack.pitchSteps.length} · gate {activeTrack.gateSteps.length}
+              {activeTrack.pitchSteps.length !== activeTrack.gateSteps.length ? ' · polymeter' : ''}
+            </span>
+          </div>
+          <PitchTrack
+            pattern={pattern}
+            track={activeTrack}
+            currentStep={activeSteps.pitch}
+            onChangeTrack={onChangeActiveTrack}
+          />
+          <GateTrack
+            track={activeTrack}
+            currentStep={activeSteps.gate}
+            onChangeTrack={onChangeActiveTrack}
+          />
+        </section>
+
+        <section className="panel panel--tools">
+          <StylePresets onApply={onStyle} />
+          <Tools
+            activeTrackName={activeTrack.name}
+            activeVoice={activeTrack.voice}
+            pitchLength={activeTrack.pitchSteps.length}
+            gateLength={activeTrack.gateSteps.length}
+            rotation={activeTrack.rotation}
+            octaveShift={activeTrack.octaveShift}
+            lfo={activeTrack.lfo}
+            velocityJitter={activeTrack.velocityJitter ?? 0}
+            onResize={onResize}
+            onMutate={onMutate}
+            onRandomizePitch={onRandomizePitch}
+            onClearGates={onClearGates}
+            onAllGates={onAllGates}
+            onEuclidean={onEuclidean}
+            onRotate={onRotate}
+            onResetRotation={onResetRotation}
+            onOctave={onOctave}
+            onResetOctave={onResetOctave}
+            onChangeLfo={onChangeLfo}
+            onChangeVelocityJitter={onChangeVelocityJitter}
+            onHumanizeNudge={onHumanizeNudge}
+            onResetNudge={onResetNudge}
+          />
+        </section>
+
+        <section className="panel panel--chord">
+          <ChordInput activeTrackName={activeTrack.name} onChord={onChord} />
+          <MidiImport activeTrackName={activeTrack.name} onImport={onMidiImport} />
+        </section>
+      </div>
 
       <footer className="app__footer">
         <small>

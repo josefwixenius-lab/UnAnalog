@@ -81,6 +81,14 @@ export function Manual({ open, onClose }: Props) {
           </p>
 
           <TipBox>
+            <strong>UI-översikt:</strong> gränssnittet är uppdelat i två zoner.
+            {' '}<em style={{ color: 'var(--accent)' }}>🌍 Global</em> (övre halvan) påverkar
+            hela låten: tempo, tonart, pattern-bank, song chain. <em style={{ color: 'var(--accent-2)' }}>🎛 Aktivt spår</em>
+            {' '}(nedre halvan) visar allt som bara gäller det spår du valt. När du klickar ett
+            annat spår byter hela den gula zonen fokus.
+          </TipBox>
+
+          <TipBox>
             Klicka bara runt! Inget i manualen är farligt att prova — allt är undo-bart genom
             att byta pattern-slot eller trycka "Rensa gates" / "Slumpa toner".
           </TipBox>
@@ -395,16 +403,47 @@ export function Manual({ open, onClose }: Props) {
               <dt>Sync-läge</dt>
               <dd><em>Genast</em> hoppar direkt när du byter slot. <em>Nästa takt</em> väntar
                 till taktstart — musikaliskt rent.</dd>
-              <dt>Exportera</dt>
-              <dd>Laddar ner hela banken som JSON. Du kan ange eget filnamn i textrutan, annars
-                blir det <code>unanalog-bank-YYYY-MM-DD.json</code>.</dd>
-              <dt>Importera</dt>
+              <dt>⬇ JSON</dt>
+              <dd>Laddar ner hela banken (alla 8 slots + inställningar) som JSON. Du kan ange
+                eget filnamn i textrutan, annars blir det{' '}
+                <code>unanalog-bank-YYYY-MM-DD.json</code>.</dd>
+              <dt>⬆ Import</dt>
               <dd>Välj en tidigare exporterad JSON. Gammal bank ersätts.</dd>
+              <dt>🎹 MIDI (.mid)</dt>
+              <dd>Exporterar <em>bara aktiv slot</em> som standardiserad MIDI-fil (SMF Type 1).
+                Varje spår blir en egen MIDI-track med sin kanal, namn och noter. Filen kan
+                öppnas i Logic, Ableton, Cubase, FL Studio, Reaper osv.</dd>
+              <dt>takter</dt>
+              <dd>Hur många takter som renderas i MIDI-filen (1–32). 4 takter räcker för en
+                loop; 16–32 för en genomspelning där villkoren (1:4, 2:3 osv.) hinner cykla.</dd>
             </dl>
+            <h3>MIDI-export: vad tas med?</h3>
+            <ul>
+              <li>Alla aktiva gate-steg, ratchet-retriggers, ackord-noter, nudge och velocity.</li>
+              <li>Accent (+0.2 velocity) och gate-stegets egna velocity-värde.</li>
+              <li>Polymeter: spår med olika pitch/gate-längd rullas korrekt över takterna.</li>
+              <li>Villkor (<code>1:2</code>, <code>2:4</code>, <code>prev</code> …) evalueras
+                deterministiskt från takt 0. Probability under 50% hoppas över i exporten
+                (annars blir filen olika varje gång).</li>
+              <li>Tempo + 4/4 time signature i headern.</li>
+            </ul>
+            <h3>Vad tas <em>inte</em> med?</h3>
+            <ul>
+              <li>Swing (grid exporteras rakt — lägg swing i DAW:en istället).</li>
+              <li>LFO och filter-lock (synth-specifikt, inte generell MIDI-information).</li>
+              <li>Slide/portamento (kan läggas till senare som CC65+CC5 om behov finns).</li>
+            </ul>
             <Example>
-              Jobbar du på en låt? Döp exporten till <code>house-jam-1</code> → filen blir
-              {' '}<code>house-jam-1.json</code>.
+              Jobbar du på en låt? Döp exporten till <code>house-jam-1</code> → klick på
+              {' '}<kbd>⬇ JSON</kbd> ger <code>house-jam-1.json</code>, klick på{' '}
+              <kbd>🎹 MIDI</kbd> ger <code>house-jam-1.mid</code>. Importera .mid i Logic på
+              {' '}en Software Instrument-track och spela vidare där.
             </Example>
+            <TipBox>
+              För en riktigt stabil export: sätt probability till 100% på de steg du vill
+              garantera, eller till 0% på de du vill utesluta. Mellanvärden (51–99%) spelas
+              alltid i exporten, 1–50% utelämnas.
+            </TipBox>
           </section>
 
           {/* === 12. SONG === */}

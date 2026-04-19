@@ -12,6 +12,7 @@ type Props = {
   onSelectSlot: (id: SlotId) => void;
   onClearSlot: (id: SlotId) => void;
   onExport: (customName: string | null) => void;
+  onExportMidi: (bars: number, customName: string | null) => void;
   onImportFile: (file: File) => void;
 };
 
@@ -23,10 +24,12 @@ export function PatternBank({
   onSelectSlot,
   onClearSlot,
   onExport,
+  onExportMidi,
   onImportFile,
 }: Props) {
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [exportName, setExportName] = useState('');
+  const [midiBars, setMidiBars] = useState<number>(4);
 
   return (
     <div className="bank">
@@ -104,11 +107,33 @@ export function PatternBank({
           onClick={() => onExport(exportName.trim() || null)}
           title={
             exportName.trim()
-              ? `Exportera som ${exportName.trim()}.json`
+              ? `Exportera hela banken som ${exportName.trim()}.json`
               : 'Exportera hela banken som JSON (datumnamn)'
           }
         >
-          ⬇ Export
+          ⬇ JSON
+        </button>
+        <label className="bank__midi-bars" title="Antal takter som renderas i MIDI-filen">
+          <span>takter</span>
+          <select value={midiBars} onChange={(e) => setMidiBars(parseInt(e.target.value, 10))}>
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={4}>4</option>
+            <option value={8}>8</option>
+            <option value={16}>16</option>
+            <option value={32}>32</option>
+          </select>
+        </label>
+        <button
+          className="chip chip--midi"
+          onClick={() => onExportMidi(midiBars, exportName.trim() || null)}
+          title={
+            exportName.trim()
+              ? `Exportera aktiv slot som ${exportName.trim()}.mid (${midiBars} takter)`
+              : `Exportera aktiv slot som .mid (${midiBars} takter, datumnamn)`
+          }
+        >
+          🎹 MIDI
         </button>
         <button
           className="chip"
