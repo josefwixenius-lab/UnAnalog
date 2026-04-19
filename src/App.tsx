@@ -84,6 +84,18 @@ export default function App() {
   const [externalBpm, setExternalBpm] = useState<number | null>(null);
   const [externalListening, setExternalListening] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [stepDetail, setStepDetail] = useState<'compact' | 'detailed'>(() => {
+    if (typeof window === 'undefined') return 'compact';
+    return (window.localStorage.getItem('unanalog.stepDetail') as 'compact' | 'detailed') || 'compact';
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('unanalog.stepDetail', stepDetail);
+    } catch {
+      // ignorera — fulla localStorage eller privat läge
+    }
+  }, [stepDetail]);
 
   const pattern = useMemo(() => getActivePattern(bank), [bank]);
 
@@ -620,7 +632,7 @@ export default function App() {
           />
         </section>
 
-        <section className="panel panel--steps">
+        <section className={`panel panel--steps panel--steps--${stepDetail}`}>
           <div className="panel__context">
             <span className="panel__context-arrow">→</span>
             <span className="panel__context-name">{activeTrack.name}</span>
@@ -628,6 +640,20 @@ export default function App() {
               pitch {activeTrack.pitchSteps.length} · gate {activeTrack.gateSteps.length}
               {activeTrack.pitchSteps.length !== activeTrack.gateSteps.length ? ' · polymeter' : ''}
             </span>
+            <div className="segment segment--detail" title="Visa kompakt (pitch+gate samtidigt) eller detaljerat (alla per-steg-reglage)">
+              <button
+                className={`segment__btn ${stepDetail === 'compact' ? 'is-on' : ''}`}
+                onClick={() => setStepDetail('compact')}
+              >
+                Kompakt
+              </button>
+              <button
+                className={`segment__btn ${stepDetail === 'detailed' ? 'is-on' : ''}`}
+                onClick={() => setStepDetail('detailed')}
+              >
+                Detaljerat
+              </button>
+            </div>
             <QuickActions
               onClearGates={onClearGates}
               onAllGates={onAllGates}

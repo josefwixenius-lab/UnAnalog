@@ -1368,6 +1368,88 @@ body {
   color: var(--accent-2);
 }
 
+/* --- Kompakt vs Detaljerat läge i step-editorn --- */
+.segment--detail {
+  font-size: 11px;
+}
+.segment--detail .segment__btn {
+  padding: 3px 10px;
+  font-size: 11px;
+}
+
+/* I kompakt-läge: göm secondary per-steg-reglage så pitch + gate
+   får plats på samma skärm. Kvar är noten, skalsteget, oktav, trigger,
+   villkor, accent. Gömda värden visas som små badges (set/ej set). */
+.panel--steps--compact .step--pitch .step__slide,
+.panel--steps--compact .step--pitch .step__chord,
+.panel--steps--compact .step--gate  .step__mini,
+.panel--steps--compact .step--gate  .step__ratchet,
+.panel--steps--compact .step--gate  .step__plock {
+  display: none;
+}
+
+/* Kompakt pitch-step: mindre höjd */
+.panel--steps--compact .step--pitch {
+  padding: 6px 6px 8px;
+  gap: 4px;
+}
+.panel--steps--compact .step--pitch .step__noteName {
+  font-size: 14px;
+}
+
+/* Kompakt gate-step: håll kvar trigger + villkor + accent */
+.panel--steps--compact .step--gate {
+  padding: 6px 6px 8px;
+  gap: 4px;
+}
+.panel--steps--compact .step--gate .step__trigger {
+  font-size: 18px;
+  padding: 2px;
+}
+.panel--steps--compact .step--gate .step__condition {
+  font-size: 10px;
+  padding: 1px 3px;
+}
+.panel--steps--compact .step--gate .step__accent {
+  font-size: 10px;
+}
+
+/* Statusbadges som visar när dolda värden är satta — diskreta prickar */
+.panel--steps--compact .step.has-chord::after,
+.panel--steps--compact .step.is-prob-low::after,
+.panel--steps--compact .step.is-nudged::after,
+.panel--steps--compact .step.has-plock::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.panel--steps--compact .step--pitch.has-chord::after { background: #b388ff; }
+.panel--steps--compact .step--gate.is-prob-low::after { background: var(--accent-2); }
+.panel--steps--compact .step--gate.is-nudged::after { background: var(--accent); right: 16px; }
+.panel--steps--compact .step--gate.has-plock::after {
+  background: var(--accent-2);
+  right: 26px;
+  border: 1px solid var(--bg);
+}
+.panel--steps--compact .step { position: relative; }
+
+/* Hide rubrikerna "Pitch · Bass" / "Gate · Bass" i kompakt — panel__context
+   har redan namnet; en stor h2-rad tar onödig höjd. */
+.panel--steps--compact .track__header h2 {
+  font-size: 11px;
+  opacity: 0.65;
+  letter-spacing: 0.08em;
+}
+
+/* Mindre gap mellan pitch- och gate-raderna i kompakt */
+.panel--steps--compact .track + .track {
+  padding-top: 6px;
+}
+
 /* --- Mobil --- */
 @media (max-width: 640px) {
   .zone { padding: 8px 8px 10px; }
