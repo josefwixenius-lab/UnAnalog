@@ -1,5 +1,0 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { NOTE_NAMES, SCALE_LABELS } from '../engine/scales';
-export function KeyScale({ root, scale, baseOctave, onRoot, onScale, onOctave }) {
-    return (_jsxs("div", { className: "group", children: [_jsxs("label", { className: "field", children: [_jsx("span", { children: "Tonart" }), _jsx("select", { value: root, onChange: (e) => onRoot(Number(e.target.value)), children: NOTE_NAMES.map((n, i) => (_jsx("option", { value: i, children: n }, n))) })] }), _jsxs("label", { className: "field", children: [_jsx("span", { children: "Skala" }), _jsx("select", { value: scale, onChange: (e) => onScale(e.target.value), children: Object.keys(SCALE_LABELS).map((s) => (_jsx("option", { value: s, children: SCALE_LABELS[s] }, s))) })] }), _jsxs("label", { className: "field", children: [_jsx("span", { children: "Oktav" }), _jsx("input", { type: "number", min: 1, max: 6, value: baseOctave, onChange: (e) => onOctave(Number(e.target.value)) })] })] }));
-}

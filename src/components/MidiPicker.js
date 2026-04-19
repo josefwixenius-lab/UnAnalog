@@ -1,4 +1,0 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-export function MidiPicker({ outputs, selectedId, onSelect }) {
-    return (_jsxs("div", { className: "group", children: [_jsxs("label", { className: "field", children: [_jsx("span", { children: "MIDI Ut (global)" }), _jsxs("select", { value: selectedId, onChange: (e) => onSelect(e.target.value), children: [_jsx("option", { value: "", children: "(ingen \u2014 tyst MIDI)" }), outputs.map((o) => (_jsx("option", { value: o.id, children: o.name }, o.id)))] })] }), outputs.length === 0 && (_jsx("small", { className: "hint", children: "Ingen MIDI-utg\u00E5ng hittad. Chrome kr\u00E4vs. P\u00E5 macOS: \u00F6ppna Audio MIDI Setup \u2192 IAC-driver \u2192 aktivera." })), outputs.length > 0 && (_jsx("small", { className: "hint", children: "Varje sp\u00E5r har egen MIDI-kanal (s\u00E4tts i sp\u00E5r-listan)." }))] }));
-}
