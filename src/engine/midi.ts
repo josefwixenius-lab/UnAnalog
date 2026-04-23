@@ -243,9 +243,29 @@ export function sendMidiClockPulse(out: MIDIOutput, whenAudioSec: number) {
   }
 }
 
+/**
+ * Song Position Pointer reset — berättar för mottagaren "börja från takt 1".
+ * Måste skickas FÖRE Start för att vissa trummaskiner (inkl. flera Behringer-
+ * och Elektron-enheter) överhuvudtaget ska följa clock-synken. Utan SPP tror
+ * enheten att den är mitt i en låt och vägrar börja.
+ */
+export function sendMidiSongPositionReset(out: MIDIOutput, whenAudioSec?: number) {
+  try {
+    const ts = whenAudioSec != null ? audioTimeToPerfMs(whenAudioSec) : performance.now();
+    // 0xF2 = Song Position Pointer, MSB=0 LSB=0 → position 0
+    out.send([0xf2, 0x00, 0x00], ts);
+  } catch (e) {
+    console.warn('[MIDI] sendMidiSongPositionReset failed:', e);
+  }
+}
+
 export function sendMidiStart(out: MIDIOutput, whenAudioSec?: number) {
   try {
-    out.send([0xfa], whenAudioSec != null ? audioTimeToPerfMs(whenAudioSec) : performance.now());
+    const ts = whenAudioSec != null ? audioTimeToPerfMs(whenAudioSec) : performance.now();
+    // SPP först (position 0), sen Start. MIDI-spec säger att SPP måste komma
+    // när transport är stoppad, och många enheter kräver det före Start.
+    out.send([0xf2, 0x00, 0x00], Math.max(0, ts - 1));
+    out.send([0xfa], ts);
     emitSend({ type: 'start', outId: out.id });
   } catch (e) {
     console.warn('[MIDI] sendMidiStart failed:', e);
@@ -312,6 +332,14 @@ export function sendClockTestBurst(out: MIDIOutput, bpm = 120, bars = 1) {
   const msPerPulse = 60000 / (bpm * 24);
   const t0 = performance.now() + 20;
   try {
+    // SPP 0 FÖRE Start — nödvändigt för flera Behringer/Elektron-enheter.
+    // Och några "warm-up" clock-pulser innan Start så mottagarens PLL hinner
+    // låsa på tempot. Det är överkurs enligt spec men gör skillnad i verkligheten.
+    out.send([0xf2, 0x00, 0x00], t0 - 10);
+    for (let i = -4; i < 0; i++) {
+      out.send([0xf8], t0 + i * msPerPulse);
+      emitSend({ type: 'clock', outId: out.id });
+    }
     out.send([0xfa], t0);
     emitSend({ type: 'start', outId: out.id });
     for (let i = 0; i < totalPulses; i++) {
