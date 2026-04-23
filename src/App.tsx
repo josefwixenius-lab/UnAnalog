@@ -34,6 +34,7 @@ import {
   sendMidiNote,
   sendMidiStart,
   sendMidiStop,
+  subscribeMidiPorts,
 } from './engine/midi';
 import type { MidiIn, MidiOut } from './engine/midi';
 import * as Tone from 'tone';
@@ -55,6 +56,7 @@ import { KeyScale } from './components/KeyScale';
 import { StepEditor } from './components/StepEditor';
 import { Tools } from './components/Tools';
 import { MidiPicker } from './components/MidiPicker';
+import { MidiDiagnostics } from './components/MidiDiagnostics';
 import { StylePresets } from './components/StylePresets';
 import { TrackStrip } from './components/TrackStrip';
 import { PatternBank, type SyncMode } from './components/PatternBank';
@@ -238,12 +240,24 @@ export default function App() {
   }, [bank]);
 
   useEffect(() => {
-    getMidiOutputs()
-      .then((outs) => setMidiOuts(outs))
-      .catch(() => setMidiOuts([]));
-    getMidiInputs()
-      .then((ins) => setMidiIns(ins))
-      .catch(() => setMidiIns([]));
+    // Prenumerera på alla port-ändringar (hot-plug: enhet kopplas in/ur).
+    // subscribeMidiPorts triggar en initial fetch plus varje gång
+    // MIDIAccess.statechange skjuts.
+    let active = true;
+    const refresh = () => {
+      void getMidiOutputs().then((outs) => {
+        if (active) setMidiOuts(outs);
+      });
+      void getMidiInputs().then((ins) => {
+        if (active) setMidiIns(ins);
+      });
+    };
+    const unsub = subscribeMidiPorts(refresh);
+    refresh();
+    return () => {
+      active = false;
+      unsub();
+    };
   }, []);
 
   // När vi byter till extern klocka: stäng av "Clock ut" (feedback-skydd)
@@ -750,6 +764,23 @@ export default function App() {
             onOctave={(v) => updatePattern((p) => ({ ...p, baseOctave: v }))}
           />
           <MidiPicker outputs={midiOuts} selectedId={selectedMidiId} onSelect={setSelectedMidiId} />
+        </section>
+
+        <section className="panel panel--diag">
+          <details className="panel__collapse">
+            <summary className="panel__summary">
+              🔧 MIDI-diagnostik
+              <span className="panel__summarySub">
+                portar · live-LEDs · test-signaler
+              </span>
+            </summary>
+            <MidiDiagnostics
+              inputs={midiIns}
+              outputs={midiOuts}
+              selectedOutId={selectedMidiId}
+              defaultChannel={1}
+            />
+          </details>
         </section>
 
         <section className="panel panel--bank">

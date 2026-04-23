@@ -26,8 +26,9 @@ const SECTIONS: Section[] = [
   { id: 'song', title: '15. Song chain — kedja patterns' },
   { id: 'midi-out', title: '16. MIDI ut — styra Logic/hårdvara' },
   { id: 'clock', title: '17. MIDI Clock in/ut — synka med annan utrustning' },
-  { id: 'tips', title: '18. Tips, idéer och felsökning' },
-  { id: 'credits', title: '19. Credits & copyright' },
+  { id: 'diag', title: '18. 🔧 MIDI-diagnostik — felsök synk & portar' },
+  { id: 'tips', title: '19. Tips, idéer och felsökning' },
+  { id: 'credits', title: '20. Credits & copyright' },
 ];
 
 export function Manual({ open, onClose }: Props) {
@@ -690,6 +691,11 @@ export function Manual({ open, onClose }: Props) {
               "Clock ut" döljs automatiskt i externt läge för att undvika feedback-loopar —
               det vore dumt att skicka tillbaka klockan till den som skickade den.
             </TipBox>
+            <TipBox>
+              Funkar inte synken? Öppna <strong>🔧 MIDI-diagnostik</strong> i samma zon
+              som MIDI Utgång. Där ser du live-LEDs, kan skicka testnoter och en 1-takts
+              testclock för att isolera var felet är. Se §18.
+            </TipBox>
             <Example>
               Scenario: Logic kör trummorna och skickar klocka, UnAnalog synkar sin bassline
               och lead ovanpå. Sätt UnAnalogs MIDI ut = IAC Bus 2 så går Logic-trummor in
@@ -697,9 +703,95 @@ export function Manual({ open, onClose }: Props) {
             </Example>
           </section>
 
-          {/* === 18. TIPS === */}
+          {/* === 18. MIDI-DIAGNOSTIK === */}
+          <section id="man-diag">
+            <h2>18. 🔧 MIDI-diagnostik — felsök synk & portar</h2>
+            <p>
+              Direkt under <em>Tonart & skala</em>-panelen (där du väljer MIDI-utgång) finns en
+              fällbar sektion med <strong>MIDI-diagnostik</strong>. Klicka på rubriken för att
+              fälla ut den. Det här är ditt bästa verktyg när clock-synk inte vill lira med
+              hårdvara.
+            </p>
+            <h3>Vad du ser</h3>
+            <dl>
+              <dt>MIDI Ut — lista över utgångar</dt>
+              <dd>Varje port har en liten grön prick när den är <em>connected</em>. Prickens
+                tooltip visar även om porten är <code>open/closed/pending</code>. UnAnalog
+                försöker automatiskt öppna alla portar — om en är <code>closed</code> på
+                Windows är det en tydlig ledtråd att drivrutinen inte är OK.</dd>
+              <dt>MIDI In — lista över ingångar</dt>
+              <dd>Samma sak för dina keyboards och master-klockor. Här syns också
+                trummaskinen om den kan skicka clock tillbaka till datorn.</dd>
+              <dt>Live-LEDs</dt>
+              <dd>Varje port har små lysdioder: <strong>CLK</strong> blinkar på varje
+                clock-puls, <strong>START</strong> på 0xFA, <strong>STOP</strong> på 0xFC,
+                <strong>NOTE</strong> på note-on, <strong>CC</strong> på kontrollmeddelanden
+                (bara på in-sidan). Dioderna släcks efter ~400 ms.</dd>
+              <dt>"Senaste mottagna"-ruta</dt>
+              <dd>Visar senaste icke-clock-meddelandet i hex, t.ex.{' '}
+                <code>START [fa]  ← LMDrum</code>. Rena clock-pulser filtreras bort så du
+                faktiskt ser Start/Stop/Notes även när mastern är igång.</dd>
+            </dl>
+            <h3>Test-knappar</h3>
+            <dl>
+              <dt>🎵 Skicka testnot</dt>
+              <dd>Skickar en Note-On/Off (C4, 250 ms) på vald kanal till aktiv MIDI-ut.
+                Verifierar att vägen dator → trummaskin funkar <em>innan</em> du ger dig på
+                klocksynk.</dd>
+              <dt>⏱ 1 takt testclock</dt>
+              <dd>Skickar <strong>Start + 96 clock-pulser + Stop</strong> (en takt @ 4/4)
+                via <code>performance.now()</code>-tidsstämplar. Om trummaskinen är korrekt
+                konfigurerad ska den gå exakt fyra kvartsnoter och sen stanna. Om tempot är
+                halverat eller dubblat har enheten en egen Clock In-divider.</dd>
+              <dt>⟳ Uppdatera portar</dt>
+              <dd>Tvingar en re-read. Använd efter att du dragit ur/in USB-kabeln utan att
+                listan uppdaterades automatiskt.</dd>
+            </dl>
+            <h3>Felsökningsflöde — trummaskin som slave (UnAnalog = master)</h3>
+            <ol>
+              <li>Är trummaskinen listad under <strong>MIDI Ut</strong>? Nej → USB/drivrutin.</li>
+              <li>
+                Tryck <kbd>🎵 Skicka testnot</kbd>. Blinkar NOTE-LED på porten? Spelar
+                trumman ljud? Nej → trumman lyssnar inte på rätt kanal.
+              </li>
+              <li>
+                Slå på <kbd>⏱ Clock ut</kbd> i transport och starta UnAnalog.
+                Blinkar CLK-LED 24 ggr/kvartsnot? Nej → ingen clock skickas, kolla att
+                "Clock ut" är på.
+              </li>
+              <li>
+                Om CLK blinkar men trumman inte följer → trumman har
+                <em>MIDI Sync In</em> eller <em>External Clock</em> avslaget i sin meny.
+                (På Behringer LMDrum: Menu → Settings → Sync = MIDI.)
+              </li>
+              <li>
+                Som sista kontroll: tryck <kbd>⏱ 1 takt testclock</kbd>. Om trumman gör
+                exakt en takt → synken är frisk, det var din pattern-konfig. Om den gör
+                "nästan" men fel tempo → Clock In Ratio behöver ställas på trumman.
+              </li>
+            </ol>
+            <h3>Felsökningsflöde — UnAnalog som slave (trummaskin = master)</h3>
+            <ol>
+              <li>Är trummaskinen listad under <strong>MIDI In</strong>? Nej → USB-kabel /
+                trumman skickar ingen clock.</li>
+              <li>Starta uppspelning på trumman. Blinkar CLK-LED på dess in-port? Nej →
+                trumman har <em>MIDI Clock Out</em> avstängt.</li>
+              <li>Sätt <strong>Klocka: Extern</strong> och tryck <kbd>▶ Lyssna</kbd>.</li>
+              <li>Tryck Play på trumman. START-LED ska blinka en gång; därefter spelar
+                UnAnalog synkat.</li>
+              <li>Om START inte kommer → trumman skickar clock men inte Start/Stop.
+                (Ovanligt, men vissa enheter har separat inställning för
+                "Transmit MMC/Transport" vs "Transmit Clock".)</li>
+            </ol>
+            <TipBox>
+              Diagnostik-panelen är passiv — den påverkar inte ljud eller tajming. Du kan
+              låta den vara öppen hela tiden om du vill.
+            </TipBox>
+          </section>
+
+          {/* === 19. TIPS === */}
           <section id="man-tips">
-            <h2>18. Tips, idéer och felsökning</h2>
+            <h2>19. Tips, idéer och felsökning</h2>
             <h3>Kreativa tips</h3>
             <ul>
               <li>Olika pitch- och gate-längd ger polymeter utan extra jobb. Prova 7 vs 16.</li>
@@ -746,16 +838,21 @@ export function Manual({ open, onClose }: Props) {
               <dt>Extern klocka fungerar inte</dt>
               <dd>Säkerställ att master verkligen skickar MIDI-klocka (t.ex. Logic:
                 File → Project Settings → Synchronization → MIDI → "Transmit MIDI Clock").
-                Tryck ▶ Lyssna i UnAnalog <em>före</em> du startar mastern.</dd>
+                Tryck ▶ Lyssna i UnAnalog <em>före</em> du startar mastern. Öppna
+                <strong> 🔧 MIDI-diagnostik</strong> (§18) för att se om CLK-LED
+                faktiskt blinkar på rätt in-port.</dd>
+              <dt>Trummaskin följer inte clock</dt>
+              <dd>Öppna §18 MIDI-diagnostik. Följ felsökningsflödet där — det visar steg
+                för steg var signalen bryter.</dd>
               <dt>Samma hash vid rebuild fast jag ändrat kod</dt>
               <dd>Leta efter gamla <code>.js</code>-filer i <code>src/</code> som skuggar
                 dina <code>.tsx</code>. Ta bort dem och bygg om.</dd>
             </dl>
           </section>
 
-          {/* === 19. CREDITS === */}
+          {/* === 20. CREDITS === */}
           <section id="man-credits">
-            <h2>19. Credits & copyright</h2>
+            <h2>20. Credits & copyright</h2>
             <p>
               <strong>{APP_META.name}</strong> · version {APP_META.version}
               <br />

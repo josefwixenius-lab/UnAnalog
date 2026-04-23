@@ -3,23 +3,210 @@ import * as Tone from 'tone';
 export type MidiOut = {
   id: string;
   name: string;
+  manufacturer: string;
+  state: 'connected' | 'disconnected';
+  connection: 'open' | 'closed' | 'pending';
   port: MIDIOutput;
 };
 
+export type MidiIn = {
+  id: string;
+  name: string;
+  manufacturer: string;
+  state: 'connected' | 'disconnected';
+  connection: 'open' | 'closed' | 'pending';
+  port: MIDIInput;
+};
+
+// ---------------------------------------------------------------------------
+// Delad MIDIAccess + statechange-broker + auto-open
+// ---------------------------------------------------------------------------
+//
+// Tidigare kallade vi `navigator.requestMIDIAccess()` separat per hämtning,
+// och ingen statechange-lyssnare fanns. Det gav två typiska problem:
+//  1. Trummaskinen som kopplades in EFTER sidladdning syntes aldrig (man
+//     tvingades reload:a sidan).
+//  2. På Windows (och vissa macOS-drivrutiner) är MIDI-portar "closed" tills
+//     man anropar `port.open()` — utan det kom inga meddelanden in/ut.
+//
+// Den här modulen cachar en MIDIAccess, auto-öppnar alla portar, och
+// notifierar prenumeranter när listan ändras.
+
+let _access: MIDIAccess | null = null;
+let _accessPromise: Promise<MIDIAccess | null> | null = null;
+let _accessError: string | null = null;
+const _portListeners = new Set<() => void>();
+
+function openSafely(port: MIDIPort) {
+  try {
+    const result = port.open();
+    if (result && typeof (result as Promise<MIDIPort>).then === 'function') {
+      (result as Promise<MIDIPort>).catch((e) =>
+        console.warn('[MIDI] open() failed on', port.name, e),
+      );
+    }
+  } catch (e) {
+    console.warn('[MIDI] open() threw on', port.name, e);
+  }
+}
+
+async function initAccess(): Promise<MIDIAccess | null> {
+  if (!('requestMIDIAccess' in navigator)) {
+    _accessError = 'Web MIDI stöds inte i denna webbläsare (Chrome eller Edge krävs).';
+    return null;
+  }
+  try {
+    const access = await navigator.requestMIDIAccess({ sysex: false });
+    _access = access;
+    _accessError = null;
+
+    // Öppna alla befintliga portar
+    access.inputs.forEach(openSafely);
+    access.outputs.forEach(openSafely);
+
+    // Fånga alla port-in/out-händelser
+    access.addEventListener('statechange', (ev) => {
+      const port = (ev as MIDIConnectionEvent).port;
+      if (port && port.state === 'connected' && port.connection === 'closed') {
+        openSafely(port);
+      }
+      for (const fn of _portListeners) {
+        try {
+          fn();
+        } catch (e) {
+          console.warn('[MIDI] port listener threw:', e);
+        }
+      }
+    });
+
+    return access;
+  } catch (e) {
+    _accessError = `MIDI-åtkomst nekades eller misslyckades: ${(e as Error).message}`;
+    console.error('[MIDI] requestMIDIAccess failed:', e);
+    _accessPromise = null;
+    return null;
+  }
+}
+
+export async function getMidiAccess(): Promise<MIDIAccess | null> {
+  if (_access) return _access;
+  if (_accessPromise) return _accessPromise;
+  _accessPromise = initAccess();
+  return _accessPromise;
+}
+
+export function getMidiAccessError(): string | null {
+  return _accessError;
+}
+
+/**
+ * Prenumerera på port-ändringar (anslutna/frånkopplade/konfigurerade).
+ * Callbacken körs varje gång listan ändras, så du kan re-hämta portar.
+ * Returnerar en unsubscribe-funktion.
+ */
+export function subscribeMidiPorts(fn: () => void): () => void {
+  _portListeners.add(fn);
+  void getMidiAccess();
+  return () => {
+    _portListeners.delete(fn);
+  };
+}
+
+function describeInput(port: MIDIInput): MidiIn {
+  return {
+    id: port.id,
+    name: port.name ?? 'MIDI In',
+    manufacturer: port.manufacturer ?? '',
+    state: port.state,
+    connection: port.connection,
+    port,
+  };
+}
+
+function describeOutput(port: MIDIOutput): MidiOut {
+  return {
+    id: port.id,
+    name: port.name ?? 'MIDI',
+    manufacturer: port.manufacturer ?? '',
+    state: port.state,
+    connection: port.connection,
+    port,
+  };
+}
+
 export async function getMidiOutputs(): Promise<MidiOut[]> {
-  if (!('requestMIDIAccess' in navigator)) return [];
-  const access = await navigator.requestMIDIAccess({ sysex: false });
+  const access = await getMidiAccess();
+  if (!access) return [];
   const outs: MidiOut[] = [];
   access.outputs.forEach((port) => {
-    outs.push({ id: port.id, name: port.name ?? 'MIDI', port });
+    if (port.state === 'connected') outs.push(describeOutput(port));
   });
   return outs;
 }
+
+export async function getMidiInputs(): Promise<MidiIn[]> {
+  const access = await getMidiAccess();
+  if (!access) return [];
+  const ins: MidiIn[] = [];
+  access.inputs.forEach((port) => {
+    if (port.state === 'connected') ins.push(describeInput(port));
+  });
+  return ins;
+}
+
+/**
+ * Tvinga re-read: useful efter att användaren kopplat in en enhet om
+ * statechange av nån anledning inte fyrats av (sker på en del Windows-system).
+ */
+export async function refreshMidiPorts(): Promise<void> {
+  const access = await getMidiAccess();
+  if (!access) return;
+  access.inputs.forEach(openSafely);
+  access.outputs.forEach(openSafely);
+  for (const fn of _portListeners) fn();
+}
+
+// ---------------------------------------------------------------------------
+// Tajming-hjälpare
+// ---------------------------------------------------------------------------
 
 function audioTimeToPerfMs(whenAudioSec: number): number {
   const audioNow = Tone.getContext().currentTime;
   const perfNow = performance.now();
   return perfNow + Math.max(0, (whenAudioSec - audioNow) * 1000);
+}
+
+// ---------------------------------------------------------------------------
+// Send-sidan
+// ---------------------------------------------------------------------------
+//
+// Vi håller en liten "tap" som diagnostikpanelen kan prenumerera på för att
+// visa en live-LED varje gång vi skickar en clock-puls / note / start/stop.
+// Det här är billigt (bara en set-iteration per sändning) och ger dig direkt
+// återkoppling när du försöker felsöka en synk.
+
+type SendEvent =
+  | { type: 'clock'; outId: string }
+  | { type: 'start' | 'stop' | 'continue'; outId: string }
+  | { type: 'note'; outId: string; channel: number; midi: number };
+
+const _sendTaps = new Set<(e: SendEvent) => void>();
+
+export function tapMidiSend(fn: (e: SendEvent) => void): () => void {
+  _sendTaps.add(fn);
+  return () => {
+    _sendTaps.delete(fn);
+  };
+}
+
+function emitSend(e: SendEvent) {
+  for (const fn of _sendTaps) {
+    try {
+      fn(e);
+    } catch {
+      // ignore
+    }
+  }
 }
 
 export function sendMidiNote(
@@ -36,60 +223,111 @@ export function sendMidiNote(
   const noteOn = [0x90 | ch, note, vel];
   const noteOff = [0x80 | ch, note, 0];
   const startMs = audioTimeToPerfMs(whenAudioSec);
-  out.send(noteOn, startMs);
-  out.send(noteOff, startMs + durationSec * 1000);
+  try {
+    out.send(noteOn, startMs);
+    out.send(noteOff, startMs + durationSec * 1000);
+    emitSend({ type: 'note', outId: out.id, channel, midi: note });
+  } catch (e) {
+    console.warn('[MIDI] sendMidiNote failed:', e);
+  }
 }
 
 // --- MIDI Clock / Realtime ---
 // 0xF8 Clock · 0xFA Start · 0xFB Continue · 0xFC Stop
 export function sendMidiClockPulse(out: MIDIOutput, whenAudioSec: number) {
-  out.send([0xf8], audioTimeToPerfMs(whenAudioSec));
+  try {
+    out.send([0xf8], audioTimeToPerfMs(whenAudioSec));
+    emitSend({ type: 'clock', outId: out.id });
+  } catch (e) {
+    console.warn('[MIDI] sendMidiClockPulse failed:', e);
+  }
 }
 
 export function sendMidiStart(out: MIDIOutput, whenAudioSec?: number) {
-  out.send([0xfa], whenAudioSec != null ? audioTimeToPerfMs(whenAudioSec) : performance.now());
+  try {
+    out.send([0xfa], whenAudioSec != null ? audioTimeToPerfMs(whenAudioSec) : performance.now());
+    emitSend({ type: 'start', outId: out.id });
+  } catch (e) {
+    console.warn('[MIDI] sendMidiStart failed:', e);
+  }
 }
 
 export function sendMidiContinue(out: MIDIOutput, whenAudioSec?: number) {
-  out.send([0xfb], whenAudioSec != null ? audioTimeToPerfMs(whenAudioSec) : performance.now());
+  try {
+    out.send([0xfb], whenAudioSec != null ? audioTimeToPerfMs(whenAudioSec) : performance.now());
+    emitSend({ type: 'continue', outId: out.id });
+  } catch (e) {
+    console.warn('[MIDI] sendMidiContinue failed:', e);
+  }
 }
 
 export function sendMidiStop(out: MIDIOutput, whenAudioSec?: number) {
-  out.send([0xfc], whenAudioSec != null ? audioTimeToPerfMs(whenAudioSec) : performance.now());
+  try {
+    out.send([0xfc], whenAudioSec != null ? audioTimeToPerfMs(whenAudioSec) : performance.now());
+    emitSend({ type: 'stop', outId: out.id });
+  } catch (e) {
+    console.warn('[MIDI] sendMidiStop failed:', e);
+  }
 }
 
 export function panicMidi(out: MIDIOutput, channel: number) {
   const ch = Math.max(0, Math.min(15, channel - 1));
-  out.send([0xb0 | ch, 123, 0]);
+  try {
+    out.send([0xb0 | ch, 123, 0]);
+  } catch (e) {
+    console.warn('[MIDI] panicMidi failed:', e);
+  }
 }
 
-export type MidiIn = {
-  id: string;
-  name: string;
-  port: MIDIInput;
-};
-
-export async function getMidiInputs(): Promise<MidiIn[]> {
-  if (!('requestMIDIAccess' in navigator)) return [];
-  const access = await navigator.requestMIDIAccess({ sysex: false });
-  const ins: MidiIn[] = [];
-  access.inputs.forEach((port) => {
-    ins.push({ id: port.id, name: port.name ?? 'MIDI In', port });
-  });
-  return ins;
+/**
+ * Skicka en testnot på vald kanal och enhet. Fire-and-forget. Används av
+ * diagnostik-panelen så du kan verifiera att MIDI Ut fungerar överhuvudtaget
+ * innan du börjar bråka med clock-sync.
+ */
+export function sendTestNote(out: MIDIOutput, channel = 1, midi = 60, durationMs = 200) {
+  const ch = Math.max(0, Math.min(15, channel - 1));
+  const note = Math.max(0, Math.min(127, Math.round(midi)));
+  const start = performance.now();
+  try {
+    out.send([0x90 | ch, note, 100], start);
+    out.send([0x80 | ch, note, 0], start + durationMs);
+    emitSend({ type: 'note', outId: out.id, channel, midi: note });
+  } catch (e) {
+    console.warn('[MIDI] sendTestNote failed:', e);
+  }
 }
 
-export type ChordCaptureHandle = {
-  stop: () => void;
-};
+/**
+ * Skicka en komplett test-sekvens: Start → 96 clockpulser (4 kvartsnoter,
+ * en takt @ 4/4) @ ~120 BPM → Stop. Om trummaskinen är riktigt konfigurerad
+ * ska den pulsera med i exakt en takt och sen stanna.
+ *
+ * Tajmingen sker via `performance.now()`-tidsstämplar vilket är det mest
+ * portabla över Chrome-versioner/OS. Chrome respekterar tidsstämplarna för
+ * MIDI-output i de allra flesta fall.
+ */
+export function sendClockTestBurst(out: MIDIOutput, bpm = 120, bars = 1) {
+  const pulsesPerBar = 96; // 24 PPQ × 4 kvarter
+  const totalPulses = pulsesPerBar * bars;
+  const msPerPulse = 60000 / (bpm * 24);
+  const t0 = performance.now() + 20;
+  try {
+    out.send([0xfa], t0);
+    emitSend({ type: 'start', outId: out.id });
+    for (let i = 0; i < totalPulses; i++) {
+      out.send([0xf8], t0 + i * msPerPulse);
+      emitSend({ type: 'clock', outId: out.id });
+    }
+    out.send([0xfc], t0 + totalPulses * msPerPulse + 5);
+    emitSend({ type: 'stop', outId: out.id });
+  } catch (e) {
+    console.warn('[MIDI] sendClockTestBurst failed:', e);
+  }
+}
 
-type ChordCallbacks = {
-  onNoteOn: (midi: number) => void;
-  onNoteOff: (midi: number) => void;
-  onComplete: (midis: number[]) => void;
-};
-
-// --- MIDI Clock IN (extern master) ---
+// ---------------------------------------------------------------------------
+// MIDI Clock IN (extern master)
+// ---------------------------------------------------------------------------
 
 export type ClockInCallbacks = {
   onStart?: () => void;
@@ -160,7 +398,10 @@ export function listenMidiClock(
     }
   };
 
-  for (const p of inputs) p.addEventListener('midimessage', handler);
+  for (const p of inputs) {
+    openSafely(p);
+    p.addEventListener('midimessage', handler);
+  }
   return {
     stop: () => {
       for (const p of inputs) p.removeEventListener('midimessage', handler);
@@ -168,30 +409,61 @@ export function listenMidiClock(
   };
 }
 
-// --- Sekvensinmatning: ton för ton, inmatningsordning bevaras ---
+/**
+ * En kraftigt simplifierad lyssnare som bara tickar en callback för varje
+ * MIDI-meddelande (note-on, clock, cc…). Används av diagnostik-panelen för
+ * att visa "senaste mottagna"-indikator. Skilt från clock-lyssnaren så de
+ * kan finnas samtidigt utan att kliva på varandra.
+ */
+export type AnyMidiMessage = {
+  status: number;
+  data: Uint8Array;
+  portId: string;
+  portName: string;
+};
+
+export function tapMidiInputs(
+  inputs: MIDIInput[],
+  cb: (m: AnyMidiMessage) => void,
+): () => void {
+  const handler = (port: MIDIInput) => (ev: Event) => {
+    const msg = ev as MIDIMessageEvent;
+    if (!msg.data) return;
+    cb({
+      status: msg.data[0],
+      data: new Uint8Array(msg.data),
+      portId: port.id,
+      portName: port.name ?? 'MIDI In',
+    });
+  };
+  const wired: Array<[MIDIInput, (ev: Event) => void]> = [];
+  for (const p of inputs) {
+    openSafely(p);
+    const h = handler(p);
+    p.addEventListener('midimessage', h);
+    wired.push([p, h]);
+  }
+  return () => {
+    for (const [p, h] of wired) p.removeEventListener('midimessage', h);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Sekvens- och ackord-inmatning (oförändrat)
+// ---------------------------------------------------------------------------
 
 export type SequenceCaptureHandle = {
-  /** Stäng lyssnaren utan att skicka in något. */
   cancel: () => void;
-  /** Stäng lyssnaren och skicka in sekvensen som spelats hittills. */
   finish: () => void;
-  /** Ta bort senast inspelade ton. */
   undo: () => void;
 };
 
 type SequenceCallbacks = {
-  /** Varje gång en ny ton spelas, i ordning. */
   onNote: (midi: number, allSoFar: number[]) => void;
-  /** Används när finish() anropas. Tom lista ger ingen callback. */
   onFinish: (midis: number[]) => void;
-  /** Används när undo() anropas. */
   onUndo: (allSoFar: number[]) => void;
 };
 
-/**
- * Liknar captureChord men bygger upp en sekvens i inmatningsordning.
- * Paus mellan toner är OK — avslut sker bara via finish()/cancel().
- */
 export function captureSequence(
   ports: MIDIInput[],
   cb: SequenceCallbacks,
@@ -206,14 +478,16 @@ export function captureSequence(
     const velRaw = msg.data[2];
     const cmd = status & 0xf0;
     const vel = velRaw ?? 0;
-    // Vi bryr oss bara om note-on för sekvensen
     if (cmd === 0x90 && vel > 0) {
       sequence.push(note);
       cb.onNote(note, sequence.slice());
     }
   };
 
-  for (const p of ports) p.addEventListener('midimessage', handler);
+  for (const p of ports) {
+    openSafely(p);
+    p.addEventListener('midimessage', handler);
+  }
 
   const detach = () => {
     for (const p of ports) p.removeEventListener('midimessage', handler);
@@ -231,6 +505,16 @@ export function captureSequence(
     },
   };
 }
+
+export type ChordCaptureHandle = {
+  stop: () => void;
+};
+
+type ChordCallbacks = {
+  onNoteOn: (midi: number) => void;
+  onNoteOff: (midi: number) => void;
+  onComplete: (midis: number[]) => void;
+};
 
 export function captureChord(ports: MIDIInput[], cb: ChordCallbacks): ChordCaptureHandle {
   const heldNow = new Set<number>();
@@ -263,7 +547,10 @@ export function captureChord(ports: MIDIInput[], cb: ChordCallbacks): ChordCaptu
     }
   };
 
-  for (const p of ports) p.addEventListener('midimessage', handler);
+  for (const p of ports) {
+    openSafely(p);
+    p.addEventListener('midimessage', handler);
+  }
   return {
     stop: () => {
       for (const p of ports) p.removeEventListener('midimessage', handler);
