@@ -4,7 +4,7 @@
  */
 export const APP_META = {
   name: 'UnAnalog Sequencer',
-  version: '0.3.0',
+  version: '0.4.0',
   year: 2026,
   owner: 'Josef Wixenius', // ← byt till exakt det namn du vill ha på copyright-raden
   /**

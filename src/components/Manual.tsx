@@ -10,21 +10,24 @@ type Section = { id: string; title: string };
 
 const SECTIONS: Section[] = [
   { id: 'start', title: '1. Snabbstart — första ljudet på 30 sek' },
-  { id: 'transport', title: '2. Transport: play, tempo, swing, FILL' },
-  { id: 'key', title: '3. Tonart, skala och baseoktav' },
-  { id: 'tracks', title: '4. Spår: voices, mute/solo, volym, kanal' },
-  { id: 'pitch', title: '5. Pitch-spåret: toner, oktaver, ackord, glid' },
-  { id: 'gate', title: '6. Gate-spåret: rytmen och alla per-steg-parametrar' },
-  { id: 'tools', title: '7. Verktyg: längder, mutera, euklidisk, rotera, LFO, jitter, humanize' },
-  { id: 'styles', title: '8. Stil-presets' },
-  { id: 'chord', title: '9. Ackord-input & sekvensinspelning' },
-  { id: 'midi-import', title: '10. MIDI-import' },
-  { id: 'bank', title: '11. Pattern bank: spara, ladda, exportera' },
-  { id: 'song', title: '12. Song chain — kedja patterns' },
-  { id: 'midi-out', title: '13. MIDI ut — styra Logic/hårdvara' },
-  { id: 'clock', title: '14. MIDI Clock in/ut — synka med annan utrustning' },
-  { id: 'tips', title: '15. Tips, idéer och felsökning' },
-  { id: 'credits', title: '16. Credits & copyright' },
+  { id: 'shortcuts', title: '2. Tangent-shortcuts & undo/redo' },
+  { id: 'transport', title: '3. Transport: play, tempo, swing, master, FILL' },
+  { id: 'key', title: '4. Tonart, skala och baseoktav' },
+  { id: 'tracks', title: '5. Spår: voices, mute/solo, volym, kanal' },
+  { id: 'pitch', title: '6. Pitch-spåret: toner, oktaver, ackord, glid' },
+  { id: 'gate', title: '7. Gate-spåret: rytmen och alla per-steg-parametrar' },
+  { id: 'stepview', title: '8. Step-editor: kompakt vs detaljerat läge' },
+  { id: 'tools', title: '9. Verktyg: längder, euklidisk, rotera, LFO, jitter, humanize, FX' },
+  { id: 'quick', title: '10. Snabbåtgärder & copy/paste av rader' },
+  { id: 'styles', title: '11. Stilpresets + 🎲 Slumpa nytt pattern' },
+  { id: 'chord', title: '12. Ackord-input & sekvensinspelning' },
+  { id: 'midi-import', title: '13. MIDI-import' },
+  { id: 'bank', title: '14. Pattern bank: spara, ladda, exportera' },
+  { id: 'song', title: '15. Song chain — kedja patterns' },
+  { id: 'midi-out', title: '16. MIDI ut — styra Logic/hårdvara' },
+  { id: 'clock', title: '17. MIDI Clock in/ut — synka med annan utrustning' },
+  { id: 'tips', title: '18. Tips, idéer och felsökning' },
+  { id: 'credits', title: '19. Credits & copyright' },
 ];
 
 export function Manual({ open, onClose }: Props) {
@@ -89,8 +92,8 @@ export function Manual({ open, onClose }: Props) {
           </TipBox>
 
           <TipBox>
-            Klicka bara runt! Inget i manualen är farligt att prova — allt är undo-bart genom
-            att byta pattern-slot eller trycka "Rensa gates" / "Slumpa toner".
+            Klicka bara runt! Allt går att ångra med <kbd>Cmd/Ctrl+Z</kbd> (eller ↶-knappen
+            uppe i transporten). Upp till 60 steg bakåt. Se §2 för alla genvägar.
           </TipBox>
 
           {/* === 1. SNABBSTART === */}
@@ -124,9 +127,47 @@ export function Manual({ open, onClose }: Props) {
             </Example>
           </section>
 
-          {/* === 2. TRANSPORT === */}
+          {/* === 2. SHORTCUTS === */}
+          <section id="man-shortcuts">
+            <h2>2. Tangent-shortcuts & undo/redo</h2>
+            <p>
+              När du jammar vill du ha händerna på tangentbordet, inte på musen. UnAnalog
+              lyssnar på följande tangenter <em>när fokus inte ligger i ett textfält</em>
+              {' '}(skriver du t.ex. tempo tar fältet hand om sina egna tangenter).
+            </p>
+            <dl>
+              <dt><kbd>Space</kbd></dt>
+              <dd>Play / Stop. I externt klock-läge armar/avarmar det istället lyssnaren.</dd>
+              <dt><kbd>1</kbd> – <kbd>8</kbd></dt>
+              <dd>Byt till pattern-slot A–H. Följer aktivt sync-läge (genast / nästa takt).</dd>
+              <dt><kbd>Z</kbd> / <kbd>X</kbd></dt>
+              <dd>Byt aktivt spår bakåt / framåt. Zonen "🎛 Aktivt spår" följer med direkt.</dd>
+              <dt><kbd>Q</kbd></dt>
+              <dd>Mute-toggle på aktivt spår (lika med M-knappen i spår-listan).</dd>
+              <dt><kbd>W</kbd></dt>
+              <dd>Solo-toggle på aktivt spår.</dd>
+              <dt><kbd>Cmd/Ctrl + Z</kbd></dt>
+              <dd>Ångra senaste ändring. Historik på upp till 60 steg bakåt.</dd>
+              <dt><kbd>Cmd/Ctrl + Shift + Z</kbd> eller <kbd>Cmd/Ctrl + Y</kbd></dt>
+              <dd>Gör om (redo).</dd>
+              <dt><kbd>Esc</kbd></dt>
+              <dd>Stänger manualen (just den här rutan).</dd>
+            </dl>
+            <TipBox>
+              Undo loggar bara <em>dina</em> ändringar — inte engine-automatik som t.ex.
+              automatiskt slot-byte via song mode. Importerar du en bank nollställs
+              historiken så du inte råkar "ångra" dig tillbaka till den gamla banken.
+            </TipBox>
+            <Example>
+              Jamma live: <kbd>X</kbd> byter till lead-spåret, <kbd>W</kbd> solo:ar det
+              för att höra soundet rent, <kbd>W</kbd> igen släpper solot. <kbd>2</kbd> byter
+              till slot B för refrängen vid nästa takt. <kbd>Space</kbd> stoppar allt.
+            </Example>
+          </section>
+
+          {/* === 3. TRANSPORT === */}
           <section id="man-transport">
-            <h2>2. Transport: play, tempo, swing, FILL</h2>
+            <h2>3. Transport: play, tempo, swing, master, FILL</h2>
             <p>Allt som styr själva uppspelningen sitter överst.</p>
             <dl>
               <dt>▶ Spela / ■ Stop</dt>
@@ -134,7 +175,7 @@ export function Manual({ open, onClose }: Props) {
                 att låsa upp ljudet i webbläsaren.</dd>
               <dt>Klocka: Intern / Extern</dt>
               <dd>Bestämmer vem som är <em>master</em>. Intern = UnAnalog styr tempot. Extern
-                = lyssnar på MIDI-klocka från en annan källa (t.ex. Logic). Se §14.</dd>
+                = lyssnar på MIDI-klocka från en annan källa (t.ex. Logic). Se §17.</dd>
               <dt>Tempo</dt>
               <dd>40–220 BPM. I externt läge visas uppmätt BPM från master istället.</dd>
               <dt>Swing</dt>
@@ -144,20 +185,32 @@ export function Manual({ open, onClose }: Props) {
                 du spelar Logic via MIDI och inte vill ha dubbelt ljud.</dd>
               <dt>FILL</dt>
               <dd>Aktiverar steg som har villkoret <code>fill</code>. Tryck på 4:an i takten
-                för att simulera en Elektron-fill. Se §6.</dd>
+                för att simulera en Elektron-fill. Se §7.</dd>
               <dt>⏱ Clock ut</dt>
               <dd>Skickar MIDI-klocka (24 PPQ) + Start/Stop till vald MIDI-ut. Syns bara i
                 intern-läge.</dd>
+              <dt>Master (–30 … +6 dB)</dt>
+              <dd>Global volym för det interna ljudet. En mjuk <em>brickwall-limiter</em> (–0.5 dB)
+                ligger permanent efter mastern, så det aldrig clippar även när du drar upp
+                eller när många spår spelar samtidigt. Master-värdet delas mellan alla 8 slots
+                — den hoppar alltså inte när du byter pattern.</dd>
+              <dt>↶ Ångra / ↷ Gör om</dt>
+              <dd>Ångrar/återställer senaste ändring. Fungerar även med tangenterna
+                {' '}<kbd>Cmd/Ctrl+Z</kbd> och <kbd>Cmd/Ctrl+Shift+Z</kbd>. Se §2.</dd>
             </dl>
             <TipBox>
               Swing låter bra mellan 52–58% på house/hiphop. Över 60% låter det full-on
               swing-jazz.
             </TipBox>
+            <TipBox>
+              Master styr <em>bara det interna ljudet</em>. MIDI-noter som skickas ut har
+              redan sin egen velocity per steg (§7) — mixa nivån i Logic istället.
+            </TipBox>
           </section>
 
-          {/* === 3. KEY === */}
+          {/* === 4. KEY === */}
           <section id="man-key">
-            <h2>3. Tonart, skala och baseoktav</h2>
+            <h2>4. Tonart, skala och baseoktav</h2>
             <p>
               Pitch-stegen lagras som <em>skalsteg</em> (1, 2, 3, …), inte som absoluta
               toner. Det betyder att du kan byta tonart eller skala när som helst — mönstret
@@ -171,7 +224,7 @@ export function Manual({ open, onClose }: Props) {
               <dd>Major, Minor, Dorian, Phrygian, Minor pentatonic, Blues… Varje skala ger en
                 unik känsla.</dd>
               <dt>Baseoktav</dt>
-              <dd>Global ton-höjd. Varje spår kan också ha sin egen oktav-shift (§4).</dd>
+              <dd>Global ton-höjd. Varje spår kan också ha sin egen oktav-shift (§5).</dd>
             </dl>
             <Example>
               Har du en groove i A Minor och vill prova D Phrygian? Ändra bara rot till D och
@@ -179,9 +232,9 @@ export function Manual({ open, onClose }: Props) {
             </Example>
           </section>
 
-          {/* === 4. TRACKS === */}
+          {/* === 5. TRACKS === */}
           <section id="man-tracks">
-            <h2>4. Spår: voices, mute/solo, volym, kanal</h2>
+            <h2>5. Spår: voices, mute/solo, volym, kanal</h2>
             <p>I spår-listan har varje spår en rad kontroller:</p>
             <dl>
               <dt>Namn</dt>
@@ -195,7 +248,7 @@ export function Manual({ open, onClose }: Props) {
                 spår kan vara solo samtidigt.</dd>
               <dt>Volym (dB)</dt>
               <dd>Endast för intern-ljudet. MIDI-velocity styrs av gate-stegets velocity
-                (§6).</dd>
+                (§7).</dd>
               <dt>MIDI-kanal</dt>
               <dd>1–16. Matchar kanalen i Logic eller din hårdvara. Sätt varje spår på unik
                 kanal så styr du olika instrument.</dd>
@@ -208,9 +261,9 @@ export function Manual({ open, onClose }: Props) {
             </TipBox>
           </section>
 
-          {/* === 5. PITCH === */}
+          {/* === 6. PITCH === */}
           <section id="man-pitch">
-            <h2>5. Pitch-spåret: toner, oktaver, ackord, glid</h2>
+            <h2>6. Pitch-spåret: toner, oktaver, ackord, glid</h2>
             <p>
               Pitch-raden visar varje steg som en kolumn. Varje kolumn har:
             </p>
@@ -238,9 +291,9 @@ export function Manual({ open, onClose }: Props) {
             </Example>
           </section>
 
-          {/* === 6. GATE === */}
+          {/* === 7. GATE === */}
           <section id="man-gate">
-            <h2>6. Gate-spåret: rytmen och alla per-steg-parametrar</h2>
+            <h2>7. Gate-spåret: rytmen och alla per-steg-parametrar</h2>
             <p>
               Gate-stegen bestämmer <em>när</em> en ton spelas. Klicka på en ruta för att
               aktivera/avaktivera. Varje aktivt steg har en massa gömda reglage som
@@ -282,9 +335,45 @@ export function Manual({ open, onClose }: Props) {
             </Example>
           </section>
 
-          {/* === 7. TOOLS === */}
+          {/* === 8. STEP EDITOR LAYOUT === */}
+          <section id="man-stepview">
+            <h2>8. Step-editor: kompakt vs detaljerat läge</h2>
+            <p>
+              I step-editorn slås <em>pitch</em> och <em>gate</em> för samma steg ihop till
+              ett enda kort. Det betyder att allt som hör till steget syns på samma ställe
+              istället för att pitch ligger i en rad och gate i en annan.
+            </p>
+            <p>
+              Uppe till höger i step-editorn finns en lilla segment-knapp med två lägen:
+            </p>
+            <dl>
+              <dt>Kompakt (default)</dt>
+              <dd>Visar bara det viktigaste: ton, skalsteg, oktav, trigger, villkor, accent.
+                Sliders för gate-längd, probability, ratchet, velocity och p-lock gömmer sig
+                bakom hover — håll musen över kortet för att se värdena som små badges.
+                Perfekt när du vill se många steg samtidigt och inte behöver mickla med
+                detaljer.</dd>
+              <dt>Detaljerat</dt>
+              <dd>Fäller ut alla per-steg-reglage direkt i kortet: gate-slider, ratchet,
+                probability, velocity, filter-lock, nudge. Väljs när du ska p-locka,
+                finjustera timing eller programmera acid-linjer i detalj.</dd>
+            </dl>
+            <TipBox>
+              Kortet är pastellfärgat efter aktivt spår, så du ser direkt vilket spår du
+              redigerar. Hela raden wrappar på smalare skärmar så du ska slippa scrolla
+              horisontellt.
+            </TipBox>
+            <Example>
+              Ett typiskt flöde: börja i <strong>Kompakt</strong> när du bygger rytmen —
+              snabbt att klicka på/av gates och välja toner. När basgången sitter byter du
+              till <strong>Detaljerat</strong> på bas-spåret och lägger accent + ratchet där
+              det behövs. Växla tillbaka för överblick igen.
+            </Example>
+          </section>
+
+          {/* === 9. TOOLS === */}
           <section id="man-tools">
-            <h2>7. Verktyg — snabba mönsteroperationer</h2>
+            <h2>9. Verktyg — snabba mönsteroperationer</h2>
             <p>Verktyg påverkar alltid det <em>aktiva spåret</em>.</p>
             <dl>
               <dt>Pitch-längd & Gate-längd</dt>
@@ -313,29 +402,113 @@ export function Manual({ open, onClose }: Props) {
               <dt>Humanize nudge</dt>
               <dd>Slumpar timing-nudge på alla steg inom ±styrkan. Klicka upprepat för nya
                 varianter. Subtilt: 5–10%. "Drunken MPC": 20–30%.</dd>
+              <dt>Effekter — Delay / Reverb / Saturation</dt>
+              <dd>
+                Per-spår FX-send. Varje spår har sin egen wet-nivå (0–100%), men nodsatsen
+                är delad globalt så cpu-kostnaden håller sig låg oavsett antal spår:
+                <ul>
+                  <li><strong>Delay</strong> — ping-pong sync:ad till 1/8. Ger rum och
+                    rörelse. Fungerar extra bra på sparsamma leads/pluckar.</li>
+                  <li><strong>Reverb</strong> — stor hall (~3.2 s decay). Mjukar soundet
+                    och sätter spåret i ett rum. För mycket på bas → plottrigt, så dosera
+                    lätt där.</li>
+                  <li><strong>Saturation</strong> — parallell drive/tape-mättnad. Lägger
+                    analog värme och bränner upp transienter. Fantastiskt på hats och bas,
+                    försiktigt på pads.</li>
+                </ul>
+                <kbd>↺ Torrt</kbd> nollställer alla tre på aktivt spår.
+              </dd>
             </dl>
+            <TipBox>
+              Delay och reverb är <em>delade</em> noder — så du hör inte reverb-svans från
+              ett spår som råkar dela våg med ett annat. Men saturation är parallell per
+              spår och blandas in efter spårets dry-signal, så det låter naturligt bredvid
+              ett helt rent spår.
+            </TipBox>
             <Example>
-              Euklidisk 5/16 på hihat + 3/8 på en synt-pluck + 1:or på kick = omedelbar
-              polyrytm.
+              Klassisk dub-feel: lite delay (40%) på lead-spåret, accent på 1:orna,
+              probability 60% på ratchets. Sätt reverb (25%) på pad-spåret för att få
+              bakgrund. Låt bas och hats vara helt torra.
             </Example>
           </section>
 
-          {/* === 8. STYLES === */}
-          <section id="man-styles">
-            <h2>8. Stil-presets</h2>
+          {/* === 10. QUICK ACTIONS === */}
+          <section id="man-quick">
+            <h2>10. Snabbåtgärder & copy/paste av rader</h2>
             <p>
-              Knappar som skriver över aktiva spårets gates + pitch med en typisk rytm/melodi
-              för genren. Perfekt startpunkt när du inte vet var du ska börja.
+              Raden ovanför step-editorn samlar de oftast använda operationerna så du
+              slipper scrolla upp till Verktyg-panelen.
             </p>
+            <dl>
+              <dt>▢ Rensa gates / ■ Alla på</dt>
+              <dd>Släcker eller tänder alla gate-steg på aktivt spår.</dd>
+              <dt>🎲 Slumpa toner / ✶ Mutera</dt>
+              <dd>Samma som i Verktyg, men ett klick bort från stegen du just redigerar.</dd>
+              <dt>📋 Kopiera pitch / 📋 Kopiera gate</dt>
+              <dd>
+                Lägger aktuella spårets pitch- eller gate-rad i ett internt clipboard.
+                Pitch-clipboarden innehåller skalsteg, oktaver, slide och ackord-noter.
+                Gate-clipboarden innehåller trigger, gate-längd, probability, ratchet,
+                accent, villkor, filter-lock, velocity <em>och</em> nudge — alltså allt
+                som hör till rytmen.
+              </dd>
+              <dt>📥 Klistra (pitch/gate)</dt>
+              <dd>
+                Ersätter motsvarande rad på aktuellt spår. Knappen visar vilken typ som
+                ligger i clipboarden. Är mottagarens rad längre än källan loopas källan
+                (så du kan kopiera ett 4-stegs mönster till 16 steg och få samma idé fyra
+                gånger).
+              </dd>
+            </dl>
             <TipBox>
-              Preset ersätter det aktiva spåret helt. Vill du bara prova utan att förlora
-              nuvarande? Spara till en tom bank-slot först (§11).
+              Copy/paste funkar även <em>mellan slots</em>. Kopiera hats-rytmen i slot A,
+              byt till slot B (eller använd <kbd>2</kbd>-tangenten från §2), byt till
+              hats-spåret och klistra. Idealt för variationer där bara ett spår byts.
             </TipBox>
+            <Example>
+              Bygg en call/response: på slot A gör du en bas-fras. Kopiera dess pitch-rad,
+              byt till slot B, klistra på lead-spåret — nu spelar leaden samma melodi en
+              oktav upp (sätt spårets oktav-shift till +1). Ångra allt med <kbd>Cmd+Z</kbd>
+              om du ändrar dig.
+            </Example>
           </section>
 
-          {/* === 9. CHORD === */}
+          {/* === 11. STYLES === */}
+          <section id="man-styles">
+            <h2>11. Stilpresets + 🎲 Slumpa nytt pattern</h2>
+            <p>
+              Stilpresets ger en typisk rytm/melodi för en genre. Det finns två olika
+              knappar här — lätta att blanda ihop men med väldigt olika effekt:
+            </p>
+            <h3>Stil-chips (Ambient · Acid · Berlin · IDM · Chillout)</h3>
+            <p>
+              Varje chip skriver över <em>bara det aktiva spåret</em> med pitch + gate-rad
+              för den stilen. Allt annat (tempo, skala, övriga spår) lämnas i fred. Perfekt
+              när du vill byta karaktär på ett enskilt spår.
+            </p>
+            <h3>🎲 Slumpa nytt pattern</h3>
+            <p>
+              Välj genre i dropdown:en bredvid och klicka. Nu bygger UnAnalog ett
+              <em> komplett nytt pattern</em> utifrån stilens profil — alla spår (bas,
+              lead, hats, pad …), tempo inom genrens typiska intervall, skala som passar
+              och lagom swing. Klicka igen för nästa idé.
+            </p>
+            <TipBox>
+              Båda knapparna skriver över utan bekräftelse, men undo-historiken fångar
+              dem. Ångra med <kbd>Cmd/Ctrl+Z</kbd> om du hellre vill fortsätta med det du
+              hade. Profilerna justerar rytm-densitet, slides, ratchets, accenter och
+              oktav-hopp efter genrens typiska kännetecken.
+            </TipBox>
+            <Example>
+              Jamma forskande: välj <strong>IDM</strong> och 🎲 tills nåt fastnar. Bevara
+              det genom att spara till en slot (§14) och slumpa sedan ett <strong>Ambient</strong>
+              {' '}i slot B som kontrast. Kedja ihop dem med Song chain (§15).
+            </Example>
+          </section>
+
+          {/* === 12. CHORD === */}
           <section id="man-chord">
-            <h2>9. Ackord-input & sekvensinspelning</h2>
+            <h2>12. Ackord-input & sekvensinspelning</h2>
             <p>Det finns två sätt att mata in toner från ett MIDI-keyboard:</p>
 
             <h3>A) Spela ackord (alla toner samtidigt)</h3>
@@ -378,9 +551,9 @@ export function Manual({ open, onClose }: Props) {
             </TipBox>
           </section>
 
-          {/* === 10. MIDI IMPORT === */}
+          {/* === 13. MIDI IMPORT === */}
           <section id="man-midi-import">
-            <h2>10. MIDI-import</h2>
+            <h2>13. MIDI-import</h2>
             <p>
               Dra en .mid-fil till "MIDI Import"-rutan eller välj via knappen. Välj sedan
               vilket spår (track) i filen du vill hämta och kvantisering (1/16, 1/8…).
@@ -392,9 +565,9 @@ export function Manual({ open, onClose }: Props) {
             </TipBox>
           </section>
 
-          {/* === 11. BANK === */}
+          {/* === 14. BANK === */}
           <section id="man-bank">
-            <h2>11. Pattern bank: spara, ladda, exportera</h2>
+            <h2>14. Pattern bank: spara, ladda, exportera</h2>
             <p>
               8 slottar (A–H). Klicka för att byta, dubbelklicka (eller "Rensa") för att
               tömma. Alla slots + bank-inställningar autosparas i webbläsaren.
@@ -446,9 +619,9 @@ export function Manual({ open, onClose }: Props) {
             </TipBox>
           </section>
 
-          {/* === 12. SONG === */}
+          {/* === 15. SONG === */}
           <section id="man-song">
-            <h2>12. Song chain — kedja patterns</h2>
+            <h2>15. Song chain — kedja patterns</h2>
             <p>
               Aktivera <em>Song mode</em> och definiera en lista av slots, t.ex. A → A → B →
               A → C. Varje takt byter UnAnalog automatiskt till nästa slot. Klicka på ett steg
@@ -460,12 +633,12 @@ export function Manual({ open, onClose }: Props) {
             </TipBox>
           </section>
 
-          {/* === 13. MIDI OUT === */}
+          {/* === 16. MIDI OUT === */}
           <section id="man-midi-out">
-            <h2>13. MIDI ut — styra Logic / hårdvara</h2>
+            <h2>16. MIDI ut — styra Logic / hårdvara</h2>
             <p>
               I "MIDI Utgång" väljer du vilken port som tar emot noter. Varje spår skickar
-              på sin egen kanal (§4). Velocity, slide, filter-lock osv följer med.
+              på sin egen kanal (§5). Velocity, slide, filter-lock osv följer med.
             </p>
             <h3>Logic via IAC-buss (macOS)</h3>
             <ol>
@@ -489,9 +662,9 @@ export function Manual({ open, onClose }: Props) {
             </TipBox>
           </section>
 
-          {/* === 14. CLOCK === */}
+          {/* === 17. CLOCK === */}
           <section id="man-clock">
-            <h2>14. MIDI Clock in/ut — synka med annan utrustning</h2>
+            <h2>17. MIDI Clock in/ut — synka med annan utrustning</h2>
             <p>
               MIDI-klocka (24 PPQ) + Start/Stop/Continue-meddelanden låter flera enheter
               följa samma tempo.
@@ -524,9 +697,9 @@ export function Manual({ open, onClose }: Props) {
             </Example>
           </section>
 
-          {/* === 15. TIPS === */}
+          {/* === 18. TIPS === */}
           <section id="man-tips">
-            <h2>15. Tips, idéer och felsökning</h2>
+            <h2>18. Tips, idéer och felsökning</h2>
             <h3>Kreativa tips</h3>
             <ul>
               <li>Olika pitch- och gate-längd ger polymeter utan extra jobb. Prova 7 vs 16.</li>
@@ -536,12 +709,37 @@ export function Manual({ open, onClose }: Props) {
               <li>LFO på filter + en lång gate-länd = bubblig acid-textur.</li>
               <li>Lägg tunna ackord på pluck/lead och solo-noter på bass. Det är ofta där
                 magin finns.</li>
+              <li>🎲 Slumpa nytt pattern (§11) → om 1 av 10 resultat känns rätt, spara
+                genast till en slot. Sen slumpa vidare.</li>
+              <li>Per-spår saturation (§9) på hats är ett snabbt sätt att få dem att sticka
+                ut utan att skruva upp volymen.</li>
+            </ul>
+            <h3>Jam-workflow</h3>
+            <ul>
+              <li><kbd>Space</kbd> startar/stoppar. <kbd>Z</kbd>/<kbd>X</kbd> byter spår,
+                <kbd>Q</kbd> muta, <kbd>W</kbd> solo. <kbd>1–8</kbd> hoppar slot.</li>
+              <li>Kopiera en rad med 📋, byt spår, klistra in med 📥 — det går fortare än
+                att bygga om rytmen manuellt.</li>
+              <li>Har du klickat fel? <kbd>Cmd/Ctrl+Z</kbd> — upp till 60 steg bakåt.</li>
             </ul>
             <h3>Felsökning</h3>
             <dl>
               <dt>Inget ljud?</dt>
               <dd>Klicka ▶ Spela en gång (webbläsaren kräver user-gesture). Kolla att "Internt
-                ljud" är på. Kolla volym på aktiva spåret. Ingen mute?</dd>
+                ljud" är på. Kolla volym på aktiva spåret. Ingen mute? Kolla även master-slidern
+                — har den dragits ned till –30 dB så är det nästan tyst.</dd>
+              <dt>Det klipper / brusar</dt>
+              <dd>Osannolikt — master-limitern (§3) är alltid på. Men om ett spårs saturation
+                står på 100% kan det låta "varmt". Dra ned på det eller tryck <kbd>↺ Torrt</kbd>
+                {' '}i FX-raden för att nollställa.</dd>
+              <dt>Tangent-genvägar triggar inte</dt>
+              <dd>Kolla att fokus inte ligger i ett input-fält (t.ex. tempo). Klicka utanför
+                först. Shortcuts är medvetet avstängda i formulärfält så du kan skriva
+                siffror utan att Space startar uppspelningen.</dd>
+              <dt>Cmd+Z ångrar fel sak</dt>
+              <dd>Import och engine-automatik (song mode-slot-byten, bar-sync) spelas
+                medvetet <em>inte</em> in i historiken. Om du just har importerat en bank
+                och trycker undo kommer du inte tillbaka till gamla banken — den är borta.</dd>
               <dt>MIDI-ut visar ingen port</dt>
               <dd>Tillåt MIDI i webbläsaren (prompten kommer första gången). Kolla att du
                 har en port aktiv i Audio MIDI Setup (macOS) eller loopMIDI (Windows).</dd>
@@ -555,9 +753,9 @@ export function Manual({ open, onClose }: Props) {
             </dl>
           </section>
 
-          {/* === 16. CREDITS === */}
+          {/* === 19. CREDITS === */}
           <section id="man-credits">
-            <h2>16. Credits & copyright</h2>
+            <h2>19. Credits & copyright</h2>
             <p>
               <strong>{APP_META.name}</strong> · version {APP_META.version}
               <br />
