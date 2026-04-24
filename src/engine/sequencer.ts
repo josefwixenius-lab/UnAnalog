@@ -11,6 +11,8 @@ export type NoteEvent = {
   durationSec: number;
   velocity: number;
   midiChannel: number;
+  /** Per-spår MIDI-port override. Tom = använd global port. */
+  midiOutId?: string;
   slide: boolean;
 };
 
@@ -308,6 +310,7 @@ export class Sequencer {
                 durationSec: dur,
                 velocity,
                 midiChannel: t.midiChannel,
+                midiOutId: t.midiOutId,
                 slide: pitch.slide,
               });
             }

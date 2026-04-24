@@ -1,15 +1,28 @@
 import type { Pattern, Track, VoiceKind } from '../engine/types';
+import type { MidiOut } from '../engine/midi';
 import { VOICE_LABELS } from '../engine/voices';
 
 type Props = {
   pattern: Pattern;
+  midiOuts: MidiOut[];
+  globalMidiOutId: string;
   onSelect: (id: string) => void;
   onChangeTrack: (id: string, patch: Partial<Track>) => void;
   onAdd: () => void;
   onRemove: (id: string) => void;
 };
 
-export function TrackStrip({ pattern, onSelect, onChangeTrack, onAdd, onRemove }: Props) {
+export function TrackStrip({
+  pattern,
+  midiOuts,
+  globalMidiOutId,
+  onSelect,
+  onChangeTrack,
+  onAdd,
+  onRemove,
+}: Props) {
+  const globalName =
+    midiOuts.find((m) => m.id === globalMidiOutId)?.name ?? '(ingen)';
   return (
     <div className="trackstrip">
       {pattern.tracks.map((t) => {
@@ -75,6 +88,26 @@ export function TrackStrip({ pattern, onSelect, onChangeTrack, onAdd, onRemove }
                 }
                 onClick={(e) => e.stopPropagation()}
               />
+            </label>
+            <label
+              className="trackstrip__port"
+              title={`MIDI-port för detta spår. "Global" = ${globalName}.`}
+            >
+              <span>port</span>
+              <select
+                value={t.midiOutId ?? ''}
+                onChange={(e) =>
+                  onChangeTrack(t.id, { midiOutId: e.target.value || undefined })
+                }
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="">↳ Global ({globalName})</option>
+                {midiOuts.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
             </label>
             <button
               className={`tiny ${!t.enabled ? 'is-muted' : ''}`}

@@ -24,7 +24,7 @@ const SECTIONS: Section[] = [
   { id: 'midi-import', title: '13. MIDI-import' },
   { id: 'bank', title: '14. Pattern bank: spara, ladda, exportera' },
   { id: 'song', title: '15. Song chain — kedja patterns' },
-  { id: 'midi-out', title: '16. MIDI ut — styra Logic/hårdvara' },
+  { id: 'midi-out', title: '16. MIDI ut — styra DAW/hårdvara' },
   { id: 'clock', title: '17. MIDI Clock in/ut — synka med annan utrustning' },
   { id: 'diag', title: '18. 🔧 MIDI-diagnostik — felsök synk & portar' },
   { id: 'tips', title: '19. Tips, idéer och felsökning' },
@@ -176,14 +176,14 @@ export function Manual({ open, onClose }: Props) {
                 att låsa upp ljudet i webbläsaren.</dd>
               <dt>Klocka: Intern / Extern</dt>
               <dd>Bestämmer vem som är <em>master</em>. Intern = UnAnalog styr tempot. Extern
-                = lyssnar på MIDI-klocka från en annan källa (t.ex. Logic). Se §17.</dd>
+                = lyssnar på MIDI-klocka från en annan källa (t.ex. DAW eller trummaskin). Se §17.</dd>
               <dt>Tempo</dt>
               <dd>40–220 BPM. I externt läge visas uppmätt BPM från master istället.</dd>
               <dt>Swing</dt>
               <dd>Skjuter varannat 16-delssteg framåt. 0% = raka, 50–60% = shuffle.</dd>
               <dt>Internt ljud</dt>
               <dd>Om av, tystas inbyggda ljuden men MIDI fortsätter skickas ut. Praktiskt när
-                du spelar Logic via MIDI och inte vill ha dubbelt ljud.</dd>
+                du spelar hårdvara eller en DAW via MIDI och inte vill ha dubbelt ljud.</dd>
               <dt>FILL</dt>
               <dd>Aktiverar steg som har villkoret <code>fill</code>. Tryck på 4:an i takten
                 för att simulera en Elektron-fill. Se §7.</dd>
@@ -205,7 +205,7 @@ export function Manual({ open, onClose }: Props) {
             </TipBox>
             <TipBox>
               Master styr <em>bara det interna ljudet</em>. MIDI-noter som skickas ut har
-              redan sin egen velocity per steg (§7) — mixa nivån i Logic istället.
+              redan sin egen velocity per steg (§7) — mixa nivån i DAWn istället.
             </TipBox>
           </section>
 
@@ -251,8 +251,14 @@ export function Manual({ open, onClose }: Props) {
               <dd>Endast för intern-ljudet. MIDI-velocity styrs av gate-stegets velocity
                 (§7).</dd>
               <dt>MIDI-kanal</dt>
-              <dd>1–16. Matchar kanalen i Logic eller din hårdvara. Sätt varje spår på unik
-                kanal så styr du olika instrument.</dd>
+              <dd>1–16. Matchar kanalen i din DAW eller hårdvara. Sätt varje spår på unik
+                kanal så styr du olika instrument på samma enhet.</dd>
+              <dt>MIDI-port (per spår)</dt>
+              <dd>Valfri — tom = "↳ Global", dvs. den port du valt i MIDI Ut (noter).
+                Välj en explicit port om spåret ska gå till en <em>annan</em> fysisk
+                enhet än de andra spåren. T.ex. bas → Model D, lead → JT-4000, perc
+                → E-MU ESI. Då kan olika spår rutas till helt skilda synter utan
+                extern MIDI-router.</dd>
               <dt>Oktav-shift</dt>
               <dd>Flyttar bara detta spår ±1 oktav. Bra för bas vs lead.</dd>
             </dl>
@@ -282,7 +288,7 @@ export function Manual({ open, onClose }: Props) {
               </li>
               <li>
                 <strong>Glid (slide)</strong> — skickar slide-info över MIDI. Vissa
-                Logic-instrument (t.ex. ES2) reagerar på portamento-CC.
+                DAW-instrument (t.ex. Logic ES2) reagerar på portamento-CC.
               </li>
             </ul>
             <Example>
@@ -548,7 +554,7 @@ export function Manual({ open, onClose }: Props) {
             <TipBox>
               Ingen hårdvara? Du kan fortfarande välja MIDI-in i listan — vilket keyboard
               eller pad-controller som helst som webbläsaren ser duger (macOS IAC-buss funkar
-              också — skicka från Logic eller annan app).
+              också — skicka från DAW eller annan app).
             </TipBox>
           </section>
 
@@ -610,7 +616,7 @@ export function Manual({ open, onClose }: Props) {
             <Example>
               Jobbar du på en låt? Döp exporten till <code>house-jam-1</code> → klick på
               {' '}<kbd>⬇ JSON</kbd> ger <code>house-jam-1.json</code>, klick på{' '}
-              <kbd>🎹 MIDI</kbd> ger <code>house-jam-1.mid</code>. Importera .mid i Logic på
+              <kbd>🎹 MIDI</kbd> ger <code>house-jam-1.mid</code>. Importera .mid i din DAW på
               {' '}en Software Instrument-track och spela vidare där.
             </Example>
             <TipBox>
@@ -636,43 +642,83 @@ export function Manual({ open, onClose }: Props) {
 
           {/* === 16. MIDI OUT === */}
           <section id="man-midi-out">
-            <h2>16. MIDI ut — styra Logic / hårdvara</h2>
+            <h2>16. MIDI ut — styra DAW / hårdvara</h2>
             <p>
-              I MIDI-rutan finns <strong>två separata portar</strong>:
+              UnAnalog har tre nivåer av MIDI-routing:
             </p>
             <dl>
-              <dt>🎹 MIDI Ut — noter</dt>
-              <dd>Tar emot alla not-events. Varje spårs MIDI-kanal (§5) styr vart
-                det landar.</dd>
+              <dt>🎹 MIDI Ut (noter) — global</dt>
+              <dd>Standardport för <em>alla</em> spårens noter. Varje spårs MIDI-kanal
+                (§5) styr kanalen på den porten.</dd>
               <dt>⏱ Clock Ut — synk</dt>
-              <dd>Tar emot MIDI Clock (24 PPQ) + Start/Stop/SPP. Kan vara samma
-                port som noter eller <em>en helt annan</em> — vilket är själva poängen:
-                då kan t.ex. JT-4000 få noter på kanal 1 medan LMDrum bara får
-                clock, utan att slumpnoter triggar trumljud.</dd>
+              <dd>Separat port för MIDI Clock (24 PPQ) + Start/Stop/SPP. Kan vara
+                samma som noter eller en helt annan — då kan t.ex. en trummaskin
+                bara få clock utan att triggas av sequencer-noter.</dd>
+              <dt>🎚 Per-spår MIDI-port</dt>
+              <dd>I spår-listan (§5) kan varje spår välja en <em>egen</em> port som
+                överstyr den globala. "↳ Global" = fall tillbaka på den globala. Gör
+                att ett enda pattern kan spela flera fysiska enheter samtidigt utan
+                extern MIDI-router.</dd>
             </dl>
+
+            <h3>Flera hårdvarusyntar samtidigt</h3>
             <p>
-              I <strong>MIDI Ut (noter)</strong> väljer du vilken port som tar emot noter. Varje spår skickar
-              på sin egen kanal (§5). Velocity, slide, filter-lock osv följer med.
+              Säg att du har Behringer Model D (USB), Roland JT-4000 (USB), Roland
+              JV-1010 (USB) och E-MU ESI (DIN via USB-MIDI-interface) + en LMDrum
+              (USB) för synk. Så här mappar du det:
             </p>
-            <h3>Logic via IAC-buss (macOS)</h3>
+            <ul>
+              <li><strong>Bas-spår:</strong> port = Model D, kanal = 1 (monotimbral)</li>
+              <li><strong>Lead-spår:</strong> port = JT-4000, kanal = 1</li>
+              <li><strong>Pad-spår:</strong> port = JV-1010, kanal = 1</li>
+              <li><strong>Perc-spår A:</strong> port = E-MU ESI, kanal = 10 (multitimbral)</li>
+              <li><strong>Perc-spår B:</strong> port = E-MU ESI, kanal = 11</li>
+              <li><strong>Global Clock Ut:</strong> LMDrum (synkstartar takt 1)</li>
+            </ul>
+            <p>
+              Sätt <strong>🎹 MIDI Ut (global)</strong> till "(ingen — tyst MIDI)" eller
+              valfri default så ingen oavsiktlig not går fel ifall ett spår saknar
+              explicit port.
+            </p>
+
+            <h3>DAW-inspelning via virtuell MIDI-buss (macOS / Windows)</h3>
+            <p>
+              Vill du spela in ditt jam i en DAW (Logic, Ableton, Bitwig, Reaper,
+              Cubase…) är det enklaste att låta DAWn ligga som MIDI-hub mellan
+              UnAnalog och hårdvarusyntarna:
+            </p>
             <ol>
               <li>
-                Öppna <strong>Audio MIDI Setup</strong> → dubbelklicka <em>IAC Driver</em>.
+                <strong>macOS:</strong> Öppna <em>Audio MIDI Setup</em> → dubbelklicka
+                "IAC Driver" → kryssa "Device is online" → lägg till så många bussar
+                du behöver (IAC Bus 1, 2, 3…).<br />
+                <strong>Windows:</strong> installera <em>loopMIDI</em> (gratis) och
+                skapa virtuella portar på samma sätt.
               </li>
               <li>
-                Kryssa i "Device is online". Lägg till buss "Bus 1".
+                I UnAnalog: sätt varje spårs <strong>port</strong> till en IAC-buss
+                (t.ex. bas → IAC Bus 1, lead → IAC Bus 2).
               </li>
               <li>
-                I Logic: skapa en External MIDI eller Software Instrument-track som tar emot
-                från IAC Driver Bus 1, kanal 1 (bas), 2 (lead) osv.
+                I DAWn: skapa en MIDI- eller External Instrument-track per IAC-buss
+                som spelar in. Sätt varje tracks MIDI-utgång till rätt fysisk synt.
+                Då spelar DAWn in exakt vad UnAnalog skickar, samtidigt som ljudet
+                går vidare till den verkliga hårdvaran.
               </li>
               <li>
-                I UnAnalog: välj "IAC Driver Bus 1" i MIDI Utgång. Klart.
+                <strong>Alternativ 1-kanal-setup:</strong> Lägg allt på IAC Bus 1,
+                låt DAWn ta emot där och splitta per kanal i olika tracks. Enklare
+                men du binder routing-logiken till DAWn istället för UnAnalog.
               </li>
             </ol>
             <TipBox>
-              Vill du bara ha MIDI och inget ljud från UnAnalog? Stäng av <em>Internt ljud</em>
-              {' '}i transport.
+              Vill du bara ha MIDI och inget ljud från UnAnalog? Stäng av{' '}
+              <em>Internt ljud</em> i transport.
+            </TipBox>
+            <TipBox>
+              Clock fungerar parallellt med DAW-inspelning. Sätt ⏱ Clock Ut till
+              samma IAC-buss som DAWn lyssnar på, så spelar DAWn in både clock och
+              noter — perfekt för att rekonstruera jamet senare.
             </TipBox>
           </section>
 
@@ -714,7 +760,7 @@ export function Manual({ open, onClose }: Props) {
             </TipBox>
             <TipBox>
               Funkar inte synken? Öppna <strong>🔧 MIDI-diagnostik</strong> i samma zon
-              som MIDI Utgång. Där ser du live-LEDs, kan skicka testnoter och en 1-takts
+              som MIDI Ut-rutan. Där ser du live-LEDs, kan skicka testnoter och en 1-takts
               testclock för att isolera var felet är. Se §18.
             </TipBox>
             <Example>

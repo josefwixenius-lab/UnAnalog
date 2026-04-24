@@ -402,6 +402,25 @@ body {
   font-size: 12px;
 }
 
+.trackstrip__port {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.trackstrip__port select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .trackstrip__vol {
   display: inline-flex;
   align-items: center;

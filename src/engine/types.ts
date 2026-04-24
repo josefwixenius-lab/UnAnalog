@@ -75,6 +75,13 @@ export type Track = {
   enabled: boolean;
   solo: boolean;
   midiChannel: number;
+  /**
+   * Valfri per-spår MIDI-utgång. Om `undefined` eller `''` används den globala
+   * "MIDI Ut (noter)"-porten. Gör att man kan routa olika spår till olika
+   * hårdvaruenheter (t.ex. bass → Model D, lead → JT-4000, perc → E-MU ESI)
+   * utan extra MIDI-router i OS.
+   */
+  midiOutId?: string;
   color: string;
   voice: VoiceKind;
   volumeDb: number;

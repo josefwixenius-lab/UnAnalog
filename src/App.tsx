@@ -160,8 +160,33 @@ export default function App() {
     clockMidiRef.current = selectedClockMidi;
   }, [selectedClockMidi]);
 
+  // Vi behåller en levande ref med alla kända MIDI-portar så handleNote kan
+  // slå upp spår-specifika portar utan att bli stateful i onödan.
+  const midiOutsRef = useRef<MidiOut[]>([]);
+  useEffect(() => {
+    midiOutsRef.current = midiOuts;
+  }, [midiOuts]);
+
+  // Panic för alla spår — använder per-spår-port om satt, annars global.
+  // Måste vara en useCallback så useEffect-deps stabilt kan referera den.
+  const panicAllTracks = useCallback((tracks: Track[]) => {
+    const outs = midiOutsRef.current;
+    const fallback = midiRef.current;
+    for (const t of tracks) {
+      let out: MidiOut | null = null;
+      if (t.midiOutId) out = outs.find((m) => m.id === t.midiOutId) ?? null;
+      if (!out) out = fallback;
+      if (out) panicMidi(out.port, t.midiChannel);
+    }
+  }, []);
+
   const handleNote = useCallback((evt: NoteEvent) => {
-    const out = midiRef.current;
+    // Per-spår-port om satt, annars global "MIDI Ut — noter".
+    let out: MidiOut | null = null;
+    if (evt.midiOutId) {
+      out = midiOutsRef.current.find((m) => m.id === evt.midiOutId) ?? null;
+    }
+    if (!out) out = midiRef.current;
     if (out) {
       sendMidiNote(out.port, evt.midiChannel, evt.midi, evt.velocity, evt.durationSec, evt.timeSec);
     }
@@ -334,15 +359,13 @@ export default function App() {
         },
         onStop: () => {
           seqRef.current!.stop();
-          if (midiRef.current) {
-            for (const t of pattern.tracks) panicMidi(midiRef.current.port, t.midiChannel);
-          }
+          panicAllTracks(pattern.tracks);
           setPlaying(false);
         },
       },
     );
     return () => handle.stop();
-  }, [clockSource, externalListening, midiIns, pattern.tracks]);
+  }, [clockSource, externalListening, midiIns, pattern.tracks, panicAllTracks]);
 
   const togglePlay = useCallback(async () => {
     if (clockSource === 'external') {
@@ -351,9 +374,7 @@ export default function App() {
       if (externalListening) {
         setExternalListening(false);
         seqRef.current!.stop();
-        if (midiRef.current) {
-          for (const t of pattern.tracks) panicMidi(midiRef.current.port, t.midiChannel);
-        }
+        panicAllTracks(pattern.tracks);
         setPlaying(false);
       } else {
         // Lås upp audio nu (kräver user gesture) så vi kan spela direkt när
@@ -367,9 +388,7 @@ export default function App() {
 
     if (playing) {
       seqRef.current!.stop();
-      if (midiRef.current) {
-        for (const t of pattern.tracks) panicMidi(midiRef.current.port, t.midiChannel);
-      }
+      panicAllTracks(pattern.tracks);
       setPlaying(false);
       setQueuedSlot(null);
     } else {
@@ -385,7 +404,7 @@ export default function App() {
       await seqRef.current!.start();
       setPlaying(true);
     }
-  }, [playing, pattern.tracks, clockSource, externalListening, externalBpm, setBankSilent]);
+  }, [playing, pattern.tracks, clockSource, externalListening, externalBpm, setBankSilent, panicAllTracks]);
 
   const updatePattern = useCallback(
     (next: Pattern | ((p: Pattern) => Pattern)) => {
@@ -865,6 +884,8 @@ export default function App() {
         <section className="panel panel--trackstrip">
           <TrackStrip
             pattern={pattern}
+            midiOuts={midiOuts}
+            globalMidiOutId={selectedMidiId}
             onSelect={onSelectTrack}
             onChangeTrack={onChangeTrackById}
             onAdd={onAddTrack}
