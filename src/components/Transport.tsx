@@ -178,8 +178,8 @@ export function Transport({
           className={`field field--toggle ${!clockOutAvailable ? 'is-disabled' : ''}`}
           title={
             clockOutAvailable
-              ? 'Skicka MIDI Clock (24 PPQ) + Start/Stop till vald MIDI-ut'
-              : 'Välj en MIDI-ut först'
+              ? 'Skicka MIDI Clock (24 PPQ) + Start/Stop till vald Clock-port'
+              : 'Välj en Clock-port i MIDI-rutan först'
           }
         >
           <input

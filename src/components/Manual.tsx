@@ -638,7 +638,20 @@ export function Manual({ open, onClose }: Props) {
           <section id="man-midi-out">
             <h2>16. MIDI ut — styra Logic / hårdvara</h2>
             <p>
-              I "MIDI Utgång" väljer du vilken port som tar emot noter. Varje spår skickar
+              I MIDI-rutan finns <strong>två separata portar</strong>:
+            </p>
+            <dl>
+              <dt>🎹 MIDI Ut — noter</dt>
+              <dd>Tar emot alla not-events. Varje spårs MIDI-kanal (§5) styr vart
+                det landar.</dd>
+              <dt>⏱ Clock Ut — synk</dt>
+              <dd>Tar emot MIDI Clock (24 PPQ) + Start/Stop/SPP. Kan vara samma
+                port som noter eller <em>en helt annan</em> — vilket är själva poängen:
+                då kan t.ex. JT-4000 få noter på kanal 1 medan LMDrum bara får
+                clock, utan att slumpnoter triggar trumljud.</dd>
+            </dl>
+            <p>
+              I <strong>MIDI Ut (noter)</strong> väljer du vilken port som tar emot noter. Varje spår skickar
               på sin egen kanal (§5). Velocity, slide, filter-lock osv följer med.
             </p>
             <h3>Logic via IAC-buss (macOS)</h3>
@@ -671,9 +684,17 @@ export function Manual({ open, onClose }: Props) {
               följa samma tempo.
             </p>
             <h3>Intern klocka (UnAnalog är master)</h3>
+            <ol>
+              <li>Välj <strong>⏱ Clock Ut — synk</strong> i MIDI-rutan och peka
+                på den enhet som ska ta emot klocka (t.ex. trummaskinen).</li>
+              <li>Slå på <kbd>⏱ Clock ut</kbd> i transport. Fältet är gråat tills
+                du valt en clock-port.</li>
+              <li>Din enhet måste vara i <em>slave-läge</em> (Sync = External/MIDI).</li>
+            </ol>
             <p>
-              Slå på <kbd>⏱ Clock ut</kbd> i transport. Ditt instrument/DAW måste vara
-              konfigurerat att ta emot extern MIDI-klocka från vald port.
+              UnAnalog skickar automatiskt <strong>Song Position Pointer = 0</strong> före
+              Start, så trummaskinen börjar från takt 1 även om den var satt på en annan
+              position. Det är avgörande för bl.a. flera Behringer- och Elektron-enheter.
             </p>
             <h3>Extern klocka (UnAnalog följer master)</h3>
             <ol>
@@ -700,6 +721,13 @@ export function Manual({ open, onClose }: Props) {
               Scenario: Logic kör trummorna och skickar klocka, UnAnalog synkar sin bassline
               och lead ovanpå. Sätt UnAnalogs MIDI ut = IAC Bus 2 så går Logic-trummor in
               separat från UnAnalog-synten.
+            </Example>
+            <Example>
+              <strong>Trummaskin + synt, båda via USB:</strong> Säg att du har en
+              Behringer LMDrum <em>och</em> en JT-4000 synt. Sätt 🎹 MIDI Ut = JT-4000
+              och ⏱ Clock Ut = LMDrum. Då får trummisen bara clock (synkstartar exakt)
+              och synten får noter enligt spårens MIDI-kanaler — utan att trummisen
+              börjar trumla slumpmässigt för att sequencer-noter råkar gå till kanal 10.
             </Example>
           </section>
 

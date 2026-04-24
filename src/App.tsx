@@ -92,7 +92,17 @@ export default function App() {
     {},
   );
   const [midiOuts, setMidiOuts] = useState<MidiOut[]>([]);
-  const [selectedMidiId, setSelectedMidiId] = useState<string>('');
+  // Två separata port-val: en för noter (per-spår-kanal styr vart de landar)
+  // och en för MIDI Clock. Då kan t.ex. JT-4000 få noter på kanal 1 medan
+  // LMDrum bara får clock — utan att synten triggar slumpljud på trummisen.
+  const [selectedMidiId, setSelectedMidiId] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return window.localStorage.getItem('unanalog.midiOutId') || '';
+  });
+  const [selectedClockMidiId, setSelectedClockMidiId] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return window.localStorage.getItem('unanalog.midiClockId') || '';
+  });
   const [syncMode, setSyncMode] = useState<SyncMode>('nextBar');
   const [queuedSlot, setQueuedSlot] = useState<SlotId | null>(null);
   const [songIndex, setSongIndex] = useState(0);
@@ -121,10 +131,34 @@ export default function App() {
     () => midiOuts.find((m) => m.id === selectedMidiId) ?? null,
     [midiOuts, selectedMidiId],
   );
+  const selectedClockMidi = useMemo(
+    () => midiOuts.find((m) => m.id === selectedClockMidiId) ?? null,
+    [midiOuts, selectedClockMidiId],
+  );
   const midiRef = useRef<MidiOut | null>(null);
+  const clockMidiRef = useRef<MidiOut | null>(null);
+
+  // Spara valen så de finns kvar nästa gång appen öppnas
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('unanalog.midiOutId', selectedMidiId);
+    } catch {
+      // ignorera — full localStorage eller privat läge
+    }
+  }, [selectedMidiId]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('unanalog.midiClockId', selectedClockMidiId);
+    } catch {
+      // ignorera
+    }
+  }, [selectedClockMidiId]);
   useEffect(() => {
     midiRef.current = selectedMidi;
   }, [selectedMidi]);
+  useEffect(() => {
+    clockMidiRef.current = selectedClockMidi;
+  }, [selectedClockMidi]);
 
   const handleNote = useCallback((evt: NoteEvent) => {
     const out = midiRef.current;
@@ -134,7 +168,10 @@ export default function App() {
   }, []);
 
   const handleClock = useCallback((msg: ClockMessage, whenAudioSec: number) => {
-    const out = midiRef.current;
+    // Clock går till den DEDIKERADE clock-porten (kan vara en annan än
+    // not-porten). Om användaren inte valt en clock-port skickas ingen clock,
+    // men noter kan fortfarande gå ut via selectedMidi.
+    const out = clockMidiRef.current;
     if (!out) return;
     switch (msg) {
       case 'clock':
@@ -217,8 +254,8 @@ export default function App() {
   }, [handleNote, handleStep, handleBar, handleClock]);
 
   useEffect(() => {
-    seqRef.current!.setClockEnabled(clockOutEnabled && !!selectedMidi);
-  }, [clockOutEnabled, selectedMidi]);
+    seqRef.current!.setClockEnabled(clockOutEnabled && !!selectedClockMidi);
+  }, [clockOutEnabled, selectedClockMidi]);
 
   useEffect(() => {
     seqRef.current!.setPattern(pattern);
@@ -732,7 +769,7 @@ export default function App() {
           onFillChange={(v) => updatePattern((p) => ({ ...p, fillActive: v }))}
           clockOut={clockOutEnabled}
           onClockOutChange={setClockOutEnabled}
-          clockOutAvailable={!!selectedMidi}
+          clockOutAvailable={!!selectedClockMidi}
           clockSource={clockSource}
           onClockSourceChange={setClockSource}
           externalBpm={externalBpm}
@@ -763,7 +800,13 @@ export default function App() {
             onScale={(v) => updatePattern((p) => ({ ...p, scale: v }))}
             onOctave={(v) => updatePattern((p) => ({ ...p, baseOctave: v }))}
           />
-          <MidiPicker outputs={midiOuts} selectedId={selectedMidiId} onSelect={setSelectedMidiId} />
+          <MidiPicker
+            outputs={midiOuts}
+            selectedId={selectedMidiId}
+            onSelect={setSelectedMidiId}
+            selectedClockId={selectedClockMidiId}
+            onSelectClock={setSelectedClockMidiId}
+          />
         </section>
 
         <section className="panel panel--diag">
