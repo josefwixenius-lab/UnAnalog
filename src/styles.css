@@ -165,6 +165,58 @@ body {
   50% { box-shadow: 0 0 0 6px rgba(247, 200, 115, 0); }
 }
 
+/* --- Record-knappen (loop-inspelning från MIDI-in) --------------------- */
+/* Röd punkt + ord ("Rec" / "Arm"). Tre visuella tillstånd:
+   - neutral (disarmed): grå punkt, låter knappen smälta in
+   - armed: gul pulserande punkt — "väntar på nästa takt"
+   - recording: stadig röd punkt med mjuk glow + pulserande kant     */
+.btn--rec {
+  min-width: 84px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn--rec[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn__rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #6a6f78;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+  flex: 0 0 auto;
+}
+.btn--rec.is-armed {
+  border-color: #f7c873;
+  color: #f7c873;
+}
+.btn--rec.is-armed .btn__rec-dot {
+  background: #f7c873;
+  animation: rec-arm-pulse 0.6s ease-in-out infinite;
+}
+.btn--rec.is-recording {
+  background: #e0465e;
+  color: #fff;
+  border-color: #e0465e;
+  animation: rec-live-pulse 1.3s ease-in-out infinite;
+}
+.btn--rec.is-recording .btn__rec-dot {
+  background: #fff;
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.65);
+}
+@keyframes rec-arm-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@keyframes rec-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(224, 70, 94, 0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(224, 70, 94, 0); }
+}
+
 .chip {
   background: var(--bg-cell);
   color: var(--text);

@@ -20,7 +20,7 @@ const SECTIONS: Section[] = [
   { id: 'tools', title: '9. Verktyg: längder, euklidisk, rotera, LFO, jitter, humanize, FX' },
   { id: 'quick', title: '10. Snabbåtgärder & copy/paste av rader' },
   { id: 'styles', title: '11. Stilpresets + 🎲 Slumpa nytt pattern' },
-  { id: 'chord', title: '12. Ackord-input & sekvensinspelning' },
+  { id: 'chord', title: '12. Ackord-input, sekvensinspelning & loop-rec' },
   { id: 'midi-import', title: '13. MIDI-import' },
   { id: 'bank', title: '14. Pattern bank: spara, ladda, exportera' },
   { id: 'song', title: '15. Song chain — kedja patterns' },
@@ -515,8 +515,8 @@ export function Manual({ open, onClose }: Props) {
 
           {/* === 12. CHORD === */}
           <section id="man-chord">
-            <h2>12. Ackord-input & sekvensinspelning</h2>
-            <p>Det finns två sätt att mata in toner från ett MIDI-keyboard:</p>
+            <h2>12. Ackord-input, sekvensinspelning & loop-rec</h2>
+            <p>Det finns tre sätt att mata in toner från ett MIDI-keyboard:</p>
 
             <h3>A) Spela ackord (alla toner samtidigt)</h3>
             <ol>
@@ -549,6 +549,45 @@ export function Manual({ open, onClose }: Props) {
               Spela in en acid-bas: <code>A → A → E → A → C → A → G → A</code>. Åtta toner
               → åtta pitch-steg, gates blir aktiva på alla. Lägg sedan oktav-offset och slide
               per steg för den karaktäristiska 303-känslan.
+            </Example>
+
+            <h3>C) Loop-inspelning live — jamma direkt in i loopen</h3>
+            <p>
+              Vill du jamma ovanpå det som redan spelar och låta ett ackord eller en melodi
+              landa direkt i aktiva spårets gridd? Då är <kbd>● Rec</kbd>-knappen (röd cirkel
+              bredvid Play) det du vill ha. Sequencern fortsätter loopa, din spelning skrivs
+              in i realtid och du hör dig själv plus resten av patterns samtidigt.
+            </p>
+            <ol>
+              <li>Välj det spår du vill skriva till (<kbd>Z</kbd>/<kbd>X</kbd> eller klicka
+                på spåret i TrackStrip).</li>
+              <li>Tryck <kbd>● Rec</kbd>. Knappen blir gul (<strong>Arm</strong>) och börjar
+                skriva vid nästa takt-gräns — clean start, inga halva noter från mitt i takten.</li>
+              <li>Spela. Varje not kvantiseras automatiskt till närmaste 16-del och närmaste
+                skalston (så du hamnar inom vald skala). Gate-längden byggs från hur länge du
+                håller tangenten — staccato-puttar ger korta gates, sustain ger gate = 1.</li>
+              <li>Overdub: spela fler noter på samma step och de läggs till som extraNotes
+                (ackord). Nya steg tar velocity från anslaget (accent sätts automatiskt vid
+                velocity &gt; 0.85).</li>
+              <li>Tryck <kbd>● Rec</kbd> igen för att stoppa (eller tryck Stop). Hela passet
+                blir <em>ett</em> undo-steg — <kbd>Cmd/Ctrl+Z</kbd> tar bort allt du just
+                spelade in, inte en not i taget.</li>
+            </ol>
+            <TipBox>
+              Rec aktiverar automatiskt Play om sequencern är stoppad — du kan trycka Rec
+              direkt utan att först starta transport. Din MIDI-ingång (keyboard eller IAC-buss)
+              hittas automatiskt — ingen separat ingångs-dropdown behövs för inspelning.
+            </TipBox>
+            <TipBox>
+              Vill du ersätta en rad i stället för att lägga till? Rensa raden först med
+              "Rensa gates" (§10) eller trycka <kbd>Cmd/Ctrl+Z</kbd> om du precis spelade in.
+              Overdub är default — så du kan bygga upp ett komp genom att jamma flera pass.
+            </TipBox>
+            <Example>
+              Lägg ett ackord-komp: välj pad-spåret, tryck <kbd>● Rec</kbd>, spela C-E-G-B och
+              håll i en hel takt. Släpp vid next bar. Resultat: fyra toner på step 1 (stapel),
+              gate = 1 (hela takten). Kör Rec igen och lägg på en bas-linje på step 5 och 9 —
+              fyller på utan att rensa vad du redan har.
             </Example>
 
             <TipBox>

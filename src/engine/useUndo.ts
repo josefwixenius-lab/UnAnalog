@@ -48,6 +48,36 @@ export function useUndoable<T>(initial: T | (() => T), max = 60) {
     [bump],
   );
 
+  /**
+   * Ändra state UTAN att röra historiken (varken clear eller push).
+   * Användbart för händelser som ska grupperas till en enda undo-operation,
+   * t.ex. loop-record som skriver många små uppdateringar men vi vill bara
+   * kunna undo:a hela inspelningen som ett block. Använd tillsammans med
+   * `pushSnapshot` för att manuellt lägga till en pre-change-snapshot i
+   * undo-historiken när operationen är klar.
+   */
+  const silent = useCallback(
+    (next: T | ((cur: T) => T)) => {
+      setState((cur) => {
+        const n = typeof next === 'function' ? (next as (c: T) => T)(cur) : next;
+        return n === cur ? cur : n;
+      });
+      bump();
+    },
+    [bump],
+  );
+
+  /** Lägg manuellt till en snapshot i undo-historiken (utan att ändra state). */
+  const pushSnapshot = useCallback(
+    (snapshot: T) => {
+      pastRef.current.push(snapshot);
+      if (pastRef.current.length > max) pastRef.current.shift();
+      futureRef.current = [];
+      bump();
+    },
+    [max, bump],
+  );
+
   const undo = useCallback(() => {
     if (pastRef.current.length === 0) return;
     setState((cur) => {
@@ -74,6 +104,8 @@ export function useUndoable<T>(initial: T | (() => T), max = 60) {
     state,
     set,
     replace,
+    silent,
+    pushSnapshot,
     undo,
     redo,
     canUndo: pastRef.current.length > 0,

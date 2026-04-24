@@ -14,6 +14,11 @@ type Props = {
   clockOut: boolean;
   onClockOutChange: (v: boolean) => void;
   clockOutAvailable: boolean;
+  /** Inspelningsläge: armed = väntar på nästa takt, recording = skriver aktivt */
+  recordArmed: boolean;
+  recording: boolean;
+  recordAvailable: boolean;
+  onToggleRecord: () => void;
   clockSource: ClockSource;
   onClockSourceChange: (src: ClockSource) => void;
   externalBpm: number | null;
@@ -41,6 +46,10 @@ export function Transport({
   clockOut,
   onClockOutChange,
   clockOutAvailable,
+  recordArmed,
+  recording,
+  recordAvailable,
+  onToggleRecord,
   clockSource,
   onClockSourceChange,
   externalBpm,
@@ -82,6 +91,24 @@ export function Transport({
         }
       >
         {playLabel}
+      </button>
+
+      <button
+        className={`btn btn--rec ${recording ? 'is-recording' : recordArmed ? 'is-armed' : ''}`}
+        onClick={onToggleRecord}
+        disabled={!recordAvailable}
+        title={
+          !recordAvailable
+            ? 'Välj en MIDI-ingång först (konfigureras automatiskt när din keyboard är inkopplad).'
+            : recording
+              ? 'Stoppa inspelning'
+              : recordArmed
+                ? 'Avarma — spelar inte in nästa takt'
+                : 'Arma inspelning — börjar vid nästa takt. Spela in noter från MIDI-ingång rakt in i aktivt spår.'
+        }
+      >
+        <span className="btn__rec-dot" aria-hidden="true" />
+        {recording ? 'Rec' : recordArmed ? 'Arm' : 'Rec'}
       </button>
 
       <div

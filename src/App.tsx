@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Sequencer } from './engine/sequencer';
 import type { ClockMessage, NoteEvent } from './engine/sequencer';
+import { LoopRecorder, applyRecorderMutation } from './engine/loopRecorder';
 import {
   addTrack,
   allActiveGates,
@@ -35,6 +36,7 @@ import {
   sendMidiStart,
   sendMidiStop,
   subscribeMidiPorts,
+  tapMidiInputs,
 } from './engine/midi';
 import type { MidiIn, MidiOut } from './engine/midi';
 import * as Tone from 'tone';
@@ -80,6 +82,8 @@ export default function App() {
     state: bank,
     set: setBank,
     replace: setBankSilent,
+    silent: setBankNoHistory,
+    pushSnapshot: pushBankHistory,
     undo,
     redo,
     canUndo,
@@ -235,10 +239,67 @@ export default function App() {
 
   const barCountRef = useRef(0);
 
+  // --- Loop-inspelning ------------------------------------------------------
+  // `recordArmed` = användaren har tryckt Rec men vi har inte landat på nästa
+  // takt än. `recording` = LoopRecorder skriver aktivt i aktivt spår.
+  // Arm:en flippar till recording i `handleBar` vid nästa bar-gräns så man
+  // får clean start utan mittislag-skräp.
+  const [recordArmed, setRecordArmed] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const recordingRef = useRef(false);
+  useEffect(() => {
+    recordingRef.current = recording;
+  }, [recording]);
+  // Snapshot av bank precis innan inspelning startar — används för att kunna
+  // undo:a hela inspelningen som ETT steg (annars skulle varje not bli en
+  // egen undo-post, och Cmd+Z skulle bli värdelöst).
+  const recordSnapshotRef = useRef<Bank | null>(null);
+  // Pattern-ref så LoopRecorder-getters alltid läser senaste state utan att
+  // behöva re-skapas när pattern muteras.
+  const patternRef = useRef(pattern);
+  useEffect(() => {
+    patternRef.current = pattern;
+  }, [pattern]);
+
+  const recorderRef = useRef<LoopRecorder | null>(null);
+  if (recorderRef.current === null) {
+    recorderRef.current = new LoopRecorder(
+      () => patternRef.current.rootNote,
+      () => patternRef.current.baseOctave,
+      () => patternRef.current.scale,
+      () => {
+        const p = patternRef.current;
+        const t = p.tracks.find((x) => x.id === p.activeTrackId) ?? p.tracks[0];
+        // Använd gate-längden (där aktiva stegen bor) som loop-längd.
+        return t?.gateSteps.length ?? 16;
+      },
+      {
+        onUpdate: (mutate) => {
+          // Silent: varje enskild not muteras osynligt för undo-historiken,
+          // och när inspelningen stoppas pushar vi snapshot-en som ETT block.
+          setBankNoHistory((b) => {
+            const cur = getActivePattern(b);
+            const next = applyRecorderMutation(cur, mutate);
+            if (next === cur) return b;
+            return setActivePattern(b, next);
+          });
+        },
+      },
+    );
+  }
+
   const handleBar = useCallback(() => {
     const b = bankRef.current;
     const isFirstBar = barCountRef.current === 0;
     barCountRef.current += 1;
+
+    // Arm → recording vid nästa takt-gräns (kan vara första takten om
+    // användaren armar innan play).
+    if (recordArmed && !recordingRef.current) {
+      recordSnapshotRef.current = bankRef.current;
+      setRecordArmed(false);
+      setRecording(true);
+    }
 
     const queued = queuedSlotRef.current;
     if (queued) {
@@ -257,7 +318,7 @@ export default function App() {
         setBankSilent(setActiveSlot(b, nextSlot));
       }
     }
-  }, [setBankSilent]);
+  }, [setBankSilent, recordArmed]);
 
   const seqRef = useRef<Sequencer | null>(null);
   if (seqRef.current === null) {
@@ -367,6 +428,41 @@ export default function App() {
     return () => handle.stop();
   }, [clockSource, externalListening, midiIns, pattern.tracks, panicAllTracks]);
 
+  // MIDI-in för loop-inspelning. Tap:ar alla MIDI-ingångar så fort vi är i
+  // `recording`-läget och dirigerar note-on/off till LoopRecorder-engine.
+  // Note-on med velocity 0 tolkas som note-off (vanligt hos Yamaha m.fl.).
+  useEffect(() => {
+    if (!recording) return;
+    if (midiIns.length === 0) return;
+    const detach = tapMidiInputs(
+      midiIns.map((m) => m.port),
+      (msg) => {
+        const status = msg.status & 0xf0;
+        const data = msg.data;
+        if (data.length < 3) return;
+        const note = data[1];
+        const vel = data[2];
+        if (status === 0x90 && vel > 0) {
+          recorderRef.current?.onNoteOn(note, vel / 127);
+        } else if (status === 0x80 || (status === 0x90 && vel === 0)) {
+          recorderRef.current?.onNoteOff(note);
+        }
+      },
+    );
+    return () => detach();
+  }, [recording, midiIns]);
+
+  // Avsluta pågående inspelning och pusha snapshot till undo-historiken som
+  // ETT block — så Cmd+Z tar bort hela passet, inte en not i taget.
+  const finalizeRecording = useCallback(() => {
+    const snap = recordSnapshotRef.current;
+    if (snap) pushBankHistory(snap);
+    recordSnapshotRef.current = null;
+    recorderRef.current?.reset();
+    setRecording(false);
+    setRecordArmed(false);
+  }, [pushBankHistory]);
+
   const togglePlay = useCallback(async () => {
     if (clockSource === 'external') {
       // Externt läge: play-knappen armar/avarmar lyssning.
@@ -376,6 +472,7 @@ export default function App() {
         seqRef.current!.stop();
         panicAllTracks(pattern.tracks);
         setPlaying(false);
+        finalizeRecording();
       } else {
         // Lås upp audio nu (kräver user gesture) så vi kan spela direkt när
         // external Start kommer.
@@ -391,6 +488,7 @@ export default function App() {
       panicAllTracks(pattern.tracks);
       setPlaying(false);
       setQueuedSlot(null);
+      finalizeRecording();
     } else {
       barCountRef.current = 0;
       if (bankRef.current.songMode) {
@@ -404,7 +502,27 @@ export default function App() {
       await seqRef.current!.start();
       setPlaying(true);
     }
-  }, [playing, pattern.tracks, clockSource, externalListening, externalBpm, setBankSilent, panicAllTracks]);
+  }, [playing, pattern.tracks, clockSource, externalListening, externalBpm, setBankSilent, panicAllTracks, finalizeRecording]);
+
+  // Rec-knappens toggle-logik. Tre fall:
+  //  a) Spelar redan + ingen rec → arma (börjar skriva vid nästa takt-gräns)
+  //  b) Stoppad + ingen rec → starta play OCH arma (arm:en flipps till
+  //     recording direkt i första `handleBar`-callbacken)
+  //  c) Armad eller recording → avbryt (avarma / stoppa inspelning)
+  const onToggleRecord = useCallback(async () => {
+    if (recording || recordArmed) {
+      finalizeRecording();
+      return;
+    }
+    // Armera inspelning
+    setRecordArmed(true);
+    if (!playing && clockSource !== 'external') {
+      // Starta playback så vi har en transport att mäta tick på
+      barCountRef.current = 0;
+      await seqRef.current!.start();
+      setPlaying(true);
+    }
+  }, [recording, recordArmed, playing, clockSource, finalizeRecording]);
 
   const updatePattern = useCallback(
     (next: Pattern | ((p: Pattern) => Pattern)) => {
@@ -789,6 +907,10 @@ export default function App() {
           clockOut={clockOutEnabled}
           onClockOutChange={setClockOutEnabled}
           clockOutAvailable={!!selectedClockMidi}
+          recordArmed={recordArmed}
+          recording={recording}
+          recordAvailable={midiIns.length > 0}
+          onToggleRecord={onToggleRecord}
           clockSource={clockSource}
           onClockSourceChange={setClockSource}
           externalBpm={externalBpm}
