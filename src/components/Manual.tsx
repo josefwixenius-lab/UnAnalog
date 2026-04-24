@@ -487,12 +487,23 @@ export function Manual({ open, onClose }: Props) {
               Stilpresets ger en typisk rytm/melodi för en genre. Det finns två olika
               knappar här — lätta att blanda ihop men med väldigt olika effekt:
             </p>
-            <h3>Stil-chips (Ambient · Acid · Berlin · IDM · Chillout)</h3>
+            <h3>Stil-chips (Ambient · Acid · Berlin · IDM · Chillout · 🌆 Synthwave · 🏁 Outrun)</h3>
             <p>
               Varje chip skriver över <em>bara det aktiva spåret</em> med pitch + gate-rad
               för den stilen. Allt annat (tempo, skala, övriga spår) lämnas i fred. Perfekt
               när du vill byta karaktär på ett enskilt spår.
             </p>
+            <TipBox>
+              <strong>🌆 Synthwave</strong> ger den klassiska Nightcall/Kavinsky-arpen: moll,
+              95 BPM, grundton + kvint som studsar mellan två oktaver. Testa att välja{' '}
+              <em>minor</em> i skala-väljaren och ett bass-spår som lead-voice —
+              du får nattlig motorväg direkt. Lägg till pad med reverb för retrodröm.
+              <br />
+              <strong>🏁 Outrun</strong> är mer episk: harmonisk moll, driving 16-del,
+              slides var fjärde, dubbelträff på näst sista steget. Byt skala till
+              <em>harmonisk moll</em> för Carpenter Brut/FM-84-action. Ett bra grepp är
+              att slumpa med 🎲 Outrun → det sätter hela patternet + tempo runt 118 BPM.
+            </TipBox>
             <h3>🎲 Slumpa nytt pattern</h3>
             <p>
               Välj genre i dropdown:en bredvid och klicka. Nu bygger UnAnalog ett

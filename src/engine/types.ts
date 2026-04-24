@@ -105,4 +105,4 @@ export type Pattern = {
   fillActive: boolean;
 };
 
-export type StyleName = 'ambient' | 'acid' | 'berlin' | 'idm' | 'chillout';
+export type StyleName = 'ambient' | 'acid' | 'berlin' | 'idm' | 'chillout' | 'synthwave' | 'outrun';

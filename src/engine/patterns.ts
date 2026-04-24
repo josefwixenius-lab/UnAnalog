@@ -504,6 +504,77 @@ export function applyStyleToActive(p: Pattern, style: StyleName): Pattern {
         }),
       );
     }
+    case 'synthwave': {
+      // Klassisk Nightcall/Kavinsky-estetik: drömsk moll-arp där varannan ton
+      // studsar upp en oktav. Grundton → kvint → grundton (oktav upp) →
+      // kvint (oktav upp) → ters → kvint → ters (oktav upp) → kvint (oktav upp).
+      // Alla gates aktiva = driving 1/16-puls. Accent på slag 1/5/9/13 ger
+      // "pulserar i fyra fjärdedelar"-känslan. Inga slides, inga ratchets —
+      // det ska låta som en sen nattlig motorväg, inte en techno-klubb.
+      const degrees = [0, 4, 0, 4, 2, 4, 2, 4, 5, 4, 5, 4, 2, 4, 2, 4];
+      const octaves = [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1];
+      return updateActiveTrack(
+        p,
+        (t) => ({
+          ...t,
+          pitchSteps: t.pitchSteps.map((s, i) => ({
+            ...s,
+            scaleDegree: pick(degrees, i),
+            octaveOffset: pick(octaves, i),
+            slide: false,
+            extraNotes: [],
+          })),
+          gateSteps: t.gateSteps.map((g, i) => ({
+            ...g,
+            active: true,
+            gate: 0.55,
+            probability: 0.98,
+            ratchet: 1,
+            accent: i % 4 === 0,
+            condition: 'always',
+            velocity: i % 4 === 0 ? 0.9 : 0.72,
+            nudge: 0,
+          })),
+        }),
+      );
+    }
+    case 'outrun': {
+      // Outrun = episk, driving 16-dels arp i harmonisk moll. Klättrar upp i
+      // trean (i-iii-v-vii) och faller tillbaka i slutet av takten. Oktav-hopp
+      // på starten av andra halvan (step 9) = lyft. Slide på sista 16-delen
+      // i varje 4-steg-grupp = karakteristisk glide-attack. Ratchet på step 15
+      // ger dubbel-puff precis innan loop-start — det där "FM-84"-rytmattacket.
+      // Tempo (118 BPM typiskt) sätts via randomize-profilen; själva spåret
+      // här är samma oavsett BPM.
+      const degrees = [0, 2, 4, 6, 4, 2, 0, 2, 4, 6, 4, 2, 0, 2, 4, 4];
+      const octaves = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0];
+      return updateActiveTrack(
+        p,
+        (t) => ({
+          ...t,
+          pitchSteps: t.pitchSteps.map((s, i) => ({
+            ...s,
+            scaleDegree: pick(degrees, i),
+            octaveOffset: pick(octaves, i),
+            // Glide på var 4:e 16-del (step 4, 8, 12, 16) för attack-charm
+            slide: i % 4 === 3,
+            extraNotes: [],
+          })),
+          gateSteps: t.gateSteps.map((g, i) => ({
+            ...g,
+            active: true,
+            gate: 0.4,
+            probability: 1,
+            // Dubbelträff på näst sista stepet → driver loopen framåt
+            ratchet: i === 14 ? 2 : 1,
+            accent: i % 4 === 0,
+            condition: 'always',
+            velocity: i % 4 === 0 ? 0.95 : i % 2 === 0 ? 0.78 : 0.65,
+            nudge: 0,
+          })),
+        }),
+      );
+    }
   }
 }
 
@@ -571,6 +642,34 @@ const STYLE_PROFILES: Record<StyleName, StyleProfile> = {
     ratchetBias: 0.04,
     accentEvery: 4,
     octaveJumpChance: 0.1,
+  },
+  synthwave: {
+    // "Nightcall"-dröm: moll, mjukt tempo runt 95, driving men inte agressiv.
+    // Bas tät (pulserar konstant) men leads/pads glesare — det ger luft för
+    // arp:et att andas. Oktav-hopp ofta (det är GREJEN i synthwave).
+    // Inga slides (arp är staccato-attack, inte glidande).
+    scale: 'minor',
+    tempo: [90, 102],
+    swing: [0, 0.08],
+    density: { bass: 0.9, lead: 0.45, hats: 0.55, pad: 0.35 },
+    slidesEvery: 0,
+    ratchetBias: 0,
+    accentEvery: 4,
+    octaveJumpChance: 0.35,
+  },
+  outrun: {
+    // Carpenter Brut / FM-84 / Power Glove: snabbare, dramatisk harmonisk
+    // moll (ledton ger den där action-filmkänslan), tätt allt, slides på
+    // arp:et för glide-attack, ratchets ibland för fill-drive. Accent på
+    // var 4:e för "4/4 på steroider".
+    scale: 'harmonicMinor',
+    tempo: [112, 126],
+    swing: [0, 0.05],
+    density: { bass: 0.95, lead: 0.7, hats: 0.82, pad: 0.45 },
+    slidesEvery: 4,
+    ratchetBias: 0.1,
+    accentEvery: 4,
+    octaveJumpChance: 0.25,
   },
 };
 

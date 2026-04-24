@@ -7,6 +7,16 @@ const STYLES: { id: StyleName; label: string; hint: string }[] = [
   { id: 'berlin', label: 'Berlin', hint: 'tät & pulsande — trivs i moll runt 115 BPM' },
   { id: 'idm', label: 'IDM', hint: 'euklidisk & polyrytmisk — trivs i dorisk runt 140 BPM' },
   { id: 'chillout', label: 'Chillout', hint: 'mjukt swing — trivs i pentatonisk dur runt 95 BPM' },
+  {
+    id: 'synthwave',
+    label: '🌆 Synthwave',
+    hint: 'Nightcall/Kavinsky-arp med oktavhopp — moll runt 95 BPM, nattlig motorväg',
+  },
+  {
+    id: 'outrun',
+    label: '🏁 Outrun',
+    hint: 'driving 16-del + slides i harmonisk moll runt 118 BPM — Carpenter Brut/FM-84',
+  },
 ];
 
 type Props = {
