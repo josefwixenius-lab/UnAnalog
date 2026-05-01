@@ -104,6 +104,34 @@ export function TrackStrip({
                 {t.volumeDb > 0 ? `+${t.volumeDb}` : t.volumeDb}
               </span>
             </label>
+            <label
+              className="trackstrip__pan"
+              title="Stereoposition. Dubbelklicka för att centrera (0)."
+            >
+              <span>pan</span>
+              <input
+                type="range"
+                min={-1}
+                max={1}
+                step={0.05}
+                value={t.pan ?? 0}
+                onChange={(e) =>
+                  onChangeTrack(t.id, { pan: Number(e.target.value) })
+                }
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  onChangeTrack(t.id, { pan: 0 });
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="unit">
+                {(() => {
+                  const p = t.pan ?? 0;
+                  if (Math.abs(p) < 0.03) return 'C';
+                  return p > 0 ? `R${Math.round(p * 100)}` : `L${Math.round(-p * 100)}`;
+                })()}
+              </span>
+            </label>
             <label className="trackstrip__ch" title="MIDI-kanal">
               <span>ch</span>
               <input

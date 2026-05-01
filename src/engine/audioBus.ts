@@ -74,6 +74,7 @@ export function setMasterVolumeDb(db: number) {
  */
 export class TrackFxChain {
   private input: Tone.Gain;
+  private panner: Tone.Panner;
   private drySend: Tone.Gain;
   private delaySend: Tone.Gain;
   private reverbSend: Tone.Gain;
@@ -84,17 +85,22 @@ export class TrackFxChain {
   constructor(initial: TrackFx) {
     ensureInit();
     this.input = new Tone.Gain(1);
+    // Panning sker FÖRE fanout till sends så delay/reverb-svansen ärver
+    // pan-positionen — annars skulle en hårt panad bas få en centrerad
+    // reverb-tail vilket låter konstigt.
+    this.panner = new Tone.Panner(0);
     this.drySend = new Tone.Gain(1);
     this.delaySend = new Tone.Gain(0);
     this.reverbSend = new Tone.Gain(0);
     this.satSend = new Tone.Gain(0);
     this.saturation = new Tone.Distortion({ distortion: 0.4, oversample: '2x', wet: 1 });
 
-    // Fanout: input → alla fyra sends
-    this.input.connect(this.drySend);
-    this.input.connect(this.delaySend);
-    this.input.connect(this.reverbSend);
-    this.input.connect(this.satSend);
+    // input → panner → fanout till alla fyra sends
+    this.input.connect(this.panner);
+    this.panner.connect(this.drySend);
+    this.panner.connect(this.delaySend);
+    this.panner.connect(this.reverbSend);
+    this.panner.connect(this.satSend);
 
     // Dry + saturation (parallell) → master
     this.drySend.connect(masterInput!);
@@ -106,6 +112,13 @@ export class TrackFxChain {
     this.reverbSend.connect(sharedReverb!);
 
     this.setFx(initial);
+  }
+
+  /** Stereoposition: -1 vänster, 0 mitt, 1 höger. */
+  setPan(pan: number) {
+    if (this.disposed) return;
+    const p = Math.max(-1, Math.min(1, pan));
+    this.panner.pan.value = p;
   }
 
   /** Voice.connect(chain.getInput()) */
@@ -132,12 +145,14 @@ export class TrackFxChain {
     if (this.disposed) return;
     this.disposed = true;
     this.input.disconnect();
+    this.panner.disconnect();
     this.drySend.disconnect();
     this.delaySend.disconnect();
     this.reverbSend.disconnect();
     this.satSend.disconnect();
     this.saturation.disconnect();
     this.input.dispose();
+    this.panner.dispose();
     this.drySend.dispose();
     this.delaySend.dispose();
     this.reverbSend.dispose();

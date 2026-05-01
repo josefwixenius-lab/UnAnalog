@@ -490,6 +490,22 @@ body {
   font-size: 12px;
 }
 
+.trackstrip__pan {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.trackstrip__pan input[type='range'] {
+  width: 64px;
+}
+.trackstrip__pan .unit {
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+  text-align: right;
+}
+
 .trackstrip__vol {
   display: inline-flex;
   align-items: center;

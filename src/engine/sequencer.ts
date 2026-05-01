@@ -179,6 +179,7 @@ export class Sequencer {
       seen.add(t.id);
       const existing = this.voices.get(t.id);
       const fx = t.fx ?? { delay: 0, reverb: 0, saturation: 0 };
+      const pan = t.pan ?? 0;
       if (!existing || existing.kind !== t.voice) {
         existing?.voice.dispose();
         existing?.fxChain.dispose();
@@ -186,12 +187,14 @@ export class Sequencer {
         voice.setVolume(t.volumeDb);
         voice.setLfo(t.lfo);
         const fxChain = new TrackFxChain(fx);
+        fxChain.setPan(pan);
         voice.connectOutput(fxChain.getInput());
         this.voices.set(t.id, { kind: t.voice, voice, fxChain });
       } else {
         existing.voice.setVolume(t.volumeDb);
         existing.voice.setLfo(t.lfo);
         existing.fxChain.setFx(fx);
+        existing.fxChain.setPan(pan);
       }
     }
     for (const [id, v] of this.voices) {
@@ -358,7 +361,13 @@ export class Sequencer {
           );
           const ratchet = Math.max(1, Math.min(4, gate.ratchet));
           const subStep = stepSec / ratchet;
-          const dur = Math.max(0.01, subStep * gate.gate);
+          // Slide förlänger noten: dur ökar mot nästa step så MIDI får
+          // overlap (legato → trigga portamento på extern synth) och
+          // internal-voice sustainer ut hela glide-tiden.
+          // slideTime: 0 = snapp, 1 = full step. Default 0.5 om saknat.
+          const slideAmt = pitch.slide ? clamp(pitch.slideTime ?? 0.5, 0, 1) : 0;
+          const slideExtra = slideAmt * stepSec * 0.85;
+          const dur = Math.max(0.01, subStep * gate.gate + slideExtra);
           const baseVel = typeof gate.velocity === 'number' ? gate.velocity : 0.8;
           const jitter = typeof t.velocityJitter === 'number' ? t.velocityJitter : 0;
           const nudgeFrac = clamp(typeof gate.nudge === 'number' ? gate.nudge : 0, -0.5, 0.5);

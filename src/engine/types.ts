@@ -19,6 +19,13 @@ export type PitchStep = {
   scaleDegree: number;
   octaveOffset: number;
   slide: boolean;
+  /**
+   * Slide-tid 0–1 där 0 = snapp (kort overlap) och 1 = full step-längd.
+   * Påverkar både hur länge internal-voice sustainer och hur stor MIDI-
+   * overlap blir mot nästa step (legato → trigga portamento på extern synth).
+   * Default 0.5 om saknat.
+   */
+  slideTime?: number;
   extraNotes?: PitchNote[];
 };
 
@@ -103,6 +110,12 @@ export type Track = {
    * Backward-compat: om fältet saknas i sparad bank tolkas det som forward.
    */
   playDirection?: PlayDirection;
+  /**
+   * Stereoposition. -1 = hård vänster, 0 = mitt (default), 1 = hård höger.
+   * Påverkar dry-, send- och saturation-vägen — så reverb/delay-svans
+   * behåller pan-positionen istället för att läcka tillbaka centrerat.
+   */
+  pan?: number;
   color: string;
   voice: VoiceKind;
   volumeDb: number;

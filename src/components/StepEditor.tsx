@@ -380,6 +380,25 @@ function CompositeSteps({
                     <span>glide</span>
                   </label>
 
+                  {p.slide && (
+                    <label
+                      className="composite-step__mini"
+                      title="Slide-tid: 0 = snapp, 1 = full step-längd. Styr hur långt portamento (legato) blir mot nästa step."
+                    >
+                      <span>tid</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={p.slideTime ?? 0.5}
+                        onChange={(e) =>
+                          updatePitch(i, { slideTime: Number(e.target.value) })
+                        }
+                      />
+                    </label>
+                  )}
+
                   <label className="composite-step__mini" title={TT.gate}>
                     <span>gate</span>
                     <input
