@@ -473,6 +473,23 @@ body {
   text-overflow: ellipsis;
 }
 
+/* Spel-riktning per spår — SQ-10/BQ-10-stil */
+.trackstrip__dir {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.trackstrip__dir select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
 .trackstrip__vol {
   display: inline-flex;
   align-items: center;

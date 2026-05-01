@@ -1,5 +1,5 @@
 import * as Tone from 'tone';
-import type { Pattern, TrigCondition, VoiceKind } from './types';
+import type { Pattern, PlayDirection, TrigCondition, VoiceKind } from './types';
 import { degreeToMidi } from './scales';
 import { createVoice, type Voice } from './voices';
 import { TrackFxChain } from './audioBus';
@@ -28,9 +28,64 @@ export type SequencerCallbacks = {
 type TrackRuntime = {
   pitchIdx: number;
   gateIdx: number;
+  /**
+   * Ping-pong-riktning per rad. +1 = framåt, -1 = bakåt. Två rader pga
+   * polymeter — pitch och gate kan ha olika längd och därför vända vid
+   * olika tidpunkter. Ignoreras för andra direction-lägen.
+   */
+  pitchDir: 1 | -1;
+  gateDir: 1 | -1;
   cycleCount: number;
+  /** Räknar steg sen senaste cykel-vändning. cycleCount++ när detta når len. */
+  cycleTick: number;
   prevFired: boolean;
 };
+
+/**
+ * Beräkna nästa step-index givet aktuellt index, längd och riktning.
+ * För ping-pong muteras `dirRef` (i runtime:n) så vändningen kommer ihåg.
+ *
+ * Edge cases:
+ * - `len <= 1`: returnerar alltid 0
+ * - `pingpong` med len = 2: bouncar mellan 0 och 1 varje step (perfekt)
+ * - `brownian` lägger till -1, 0 eller +1 (slumpvis) och wrappar
+ */
+function advance(
+  cur: number,
+  len: number,
+  dir: PlayDirection,
+  runtime: TrackRuntime,
+  isGate: boolean,
+): number {
+  if (len <= 1) return 0;
+  switch (dir) {
+    case 'forward':
+      return (cur + 1) % len;
+    case 'reverse':
+      return (cur - 1 + len) % len;
+    case 'pingpong': {
+      const cur2 = isGate ? runtime.gateDir : runtime.pitchDir;
+      let next = cur + cur2;
+      let nextDir: 1 | -1 = cur2;
+      if (next >= len) {
+        nextDir = -1;
+        next = Math.max(0, len - 2);
+      } else if (next < 0) {
+        nextDir = 1;
+        next = Math.min(len - 1, 1);
+      }
+      if (isGate) runtime.gateDir = nextDir;
+      else runtime.pitchDir = nextDir;
+      return next;
+    }
+    case 'random':
+      return Math.floor(Math.random() * len);
+    case 'brownian': {
+      const delta = Math.floor(Math.random() * 3) - 1; // -1, 0, +1
+      return ((cur + delta) % len + len) % len;
+    }
+  }
+}
 
 type VoiceEntry = {
   kind: VoiceKind;
@@ -95,12 +150,21 @@ export class Sequencer {
   private syncRuntimes(p: Pattern) {
     const next = new Map<string, TrackRuntime>();
     for (const t of p.tracks) {
+      const dir = t.playDirection ?? 'forward';
+      // Vid reverse: starta sista stepet så första tick ger len-1 istället
+      // för att hoppa över hela första cyklen. Vi spelar AKTUELLT step varje
+      // tick (inte nästa), så pitchIdx/gateIdx här är vad som hörs på tick 1.
+      const startPitch = dir === 'reverse' ? Math.max(0, t.pitchSteps.length - 1) : 0;
+      const startGate = dir === 'reverse' ? Math.max(0, t.gateSteps.length - 1) : 0;
       next.set(
         t.id,
         this.runtimes.get(t.id) ?? {
-          pitchIdx: 0,
-          gateIdx: 0,
+          pitchIdx: startPitch,
+          gateIdx: startGate,
+          pitchDir: 1,
+          gateDir: 1,
           cycleCount: 0,
+          cycleTick: 0,
           prevFired: false,
         },
       );
@@ -243,10 +307,16 @@ export class Sequencer {
   }
 
   private resetRuntimes() {
-    for (const rt of this.runtimes.values()) {
-      rt.pitchIdx = 0;
-      rt.gateIdx = 0;
+    for (const t of this.pattern.tracks) {
+      const rt = this.runtimes.get(t.id);
+      if (!rt) continue;
+      const dir = t.playDirection ?? 'forward';
+      rt.pitchIdx = dir === 'reverse' ? Math.max(0, t.pitchSteps.length - 1) : 0;
+      rt.gateIdx = dir === 'reverse' ? Math.max(0, t.gateSteps.length - 1) : 0;
+      rt.pitchDir = 1;
+      rt.gateDir = 1;
       rt.cycleCount = 0;
+      rt.cycleTick = 0;
       rt.prevFired = false;
     }
   }
@@ -326,11 +396,20 @@ export class Sequencer {
         this.cb.onStep?.(trackId, pIdx, gIdx);
       }, time);
 
-      const nextPitch = (rt.pitchIdx + 1) % Math.max(1, t.pitchSteps.length);
-      const nextGate = (rt.gateIdx + 1) % Math.max(1, t.gateSteps.length);
-      if (nextGate === 0) rt.cycleCount++;
-      rt.pitchIdx = nextPitch;
-      rt.gateIdx = nextGate;
+      const dir = t.playDirection ?? 'forward';
+      const pLen = Math.max(1, t.pitchSteps.length);
+      const gLen = Math.max(1, t.gateSteps.length);
+      // Cycle-räknaren tickar varje step. När den når gate-radens längd
+      // räknas det som "ny cykel" — det är vad 1:N-conditions baseras på.
+      // Detta är konsistent oavsett direction (forward/reverse/random/…)
+      // medan tidigare endast wrap-to-0 räknades, vilket bröt för reverse.
+      rt.cycleTick++;
+      if (rt.cycleTick >= gLen) {
+        rt.cycleCount++;
+        rt.cycleTick = 0;
+      }
+      rt.pitchIdx = advance(rt.pitchIdx, pLen, dir, rt, false);
+      rt.gateIdx = advance(rt.gateIdx, gLen, dir, rt, true);
     }
   }
 }

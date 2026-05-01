@@ -1,6 +1,14 @@
-import type { Pattern, Track, VoiceKind } from '../engine/types';
+import type { Pattern, PlayDirection, Track, VoiceKind } from '../engine/types';
 import type { MidiOut } from '../engine/midi';
 import { VOICE_LABELS } from '../engine/voices';
+
+const DIRECTION_OPTIONS: { id: PlayDirection; label: string; hint: string }[] = [
+  { id: 'forward', label: '▶ Framåt', hint: 'Standardriktning — 0, 1, 2, …, len-1, 0, …' },
+  { id: 'reverse', label: '◀ Bakåt', hint: 'Spelar baklänges — len-1, len-2, …, 1, 0, len-1, …' },
+  { id: 'pingpong', label: '◀▶ Ping-pong', hint: 'Studsar fram och tillbaka mellan ändarna' },
+  { id: 'random', label: '🎲 Slump', hint: 'Plockar ett random index varje step' },
+  { id: 'brownian', label: '➰ Brownian', hint: 'Random walk — vandrar ±1 utan stora hopp' },
+];
 
 type Props = {
   pattern: Pattern;
@@ -53,6 +61,28 @@ export function TrackStrip({
                 {(Object.keys(VOICE_LABELS) as VoiceKind[]).map((k) => (
                   <option key={k} value={k}>
                     {VOICE_LABELS[k]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label
+              className="trackstrip__dir"
+              title={
+                DIRECTION_OPTIONS.find((d) => d.id === (t.playDirection ?? 'forward'))?.hint ??
+                'Spel-riktning per spår (SQ-10-stil)'
+              }
+            >
+              <span>dir</span>
+              <select
+                value={t.playDirection ?? 'forward'}
+                onChange={(e) =>
+                  onChangeTrack(t.id, { playDirection: e.target.value as PlayDirection })
+                }
+                onClick={(e) => e.stopPropagation()}
+              >
+                {DIRECTION_OPTIONS.map((d) => (
+                  <option key={d.id} value={d.id} title={d.hint}>
+                    {d.label}
                   </option>
                 ))}
               </select>

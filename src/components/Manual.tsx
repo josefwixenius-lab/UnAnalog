@@ -259,9 +259,34 @@ export function Manual({ open, onClose }: Props) {
                 enhet än de andra spåren. T.ex. bas → Model D, lead → JT-4000, perc
                 → E-MU ESI. Då kan olika spår rutas till helt skilda synter utan
                 extern MIDI-router.</dd>
+              <dt>Spel-riktning (dir)</dt>
+              <dd>
+                Inspirerad av Korg SQ-10 / Behringer BQ-10. Varje spår spelar oberoende
+                så du kan kombinera olika riktningar för polyrytmiska effekter.
+                <ul>
+                  <li><strong>▶ Framåt</strong> — standard, 0 → 1 → 2 → … → wrap.</li>
+                  <li><strong>◀ Bakåt</strong> — spelar samma steg baklänges. Lägg
+                    bakåt på lead-spåret medan bas går framåt → instant variation utan
+                    att redigera ett enda step.</li>
+                  <li><strong>◀▶ Ping-pong</strong> — studsar mellan ändarna. En full
+                    ping-pong-cykel tar 2*(len-1) steg, så ett 8-step-spår blir 14 step
+                    långt innan det upprepas. Bra för polymeter mot 16-step bass.</li>
+                  <li><strong>🎲 Slump</strong> — varje step plockas helt slumpvis.
+                    Glitchy, oförutsägbart. Funkar bra på korta hihat-loopar.</li>
+                  <li><strong>➰ Brownian</strong> — random walk (±1 eller står still
+                    per step). Tonerna vandrar utan att hoppa stora avstånd → "skälvande
+                    melodi" som ändå håller sig i ett område.</li>
+                </ul>
+              </dd>
               <dt>Oktav-shift</dt>
               <dd>Flyttar bara detta spår ±1 oktav. Bra för bas vs lead.</dd>
             </dl>
+            <TipBox>
+              <strong>Klassiskt synthwave-trick:</strong> kör samma 8-step arp på två
+              spår — ett på <strong>▶ Framåt</strong>, ett på <strong>◀ Bakåt</strong>,
+              med olika voice/oktav. Det skapar en "korsning" mitt i takten där spåren
+              möts och divergerar igen. Funkar magiskt med en 🌆 Synthwave-preset.
+            </TipBox>
             <TipBox>
               Fem spår är default. Tryck "+ Nytt spår" i botten av spår-listan för fler, och
               soptunnan för att ta bort.

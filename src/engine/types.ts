@@ -46,6 +46,22 @@ export type GateStep = {
 
 export type VoiceKind = 'bass' | 'lead' | 'hats' | 'pad' | 'saw';
 
+/**
+ * Spel-riktning per spår — inspirerat av Korg SQ-10 / Behringer BQ-10
+ * Mode A/B/C-väljaren. Att kunna köra ett spår baklänges eller ping-pong
+ * mot ett annat ger massiv variation utan att man rör en enda step.
+ *
+ * - `forward`  : 0 → 1 → 2 → … → len-1 → 0  (default)
+ * - `reverse`  : len-1 → len-2 → … → 0 → len-1
+ * - `pingpong` : 0 → 1 → … → len-1 → len-2 → … → 1 → 0 → 1 → …
+ *                Vänder vid kanterna (en full ping-pong tar 2*(len-1) steg).
+ * - `random`   : varje step plockas slumpvis i hela längden — kan upprepa
+ *                samma index, ger glitchy/oförutsägbar känsla
+ * - `brownian` : random-walk (±1 eller står still per step) — tonerna
+ *                vandrar runt utan att hoppa, "skälvande melodi"
+ */
+export type PlayDirection = 'forward' | 'reverse' | 'pingpong' | 'random' | 'brownian';
+
 export type LfoTarget = 'off' | 'volume' | 'filter';
 export type LfoShape = 'sine' | 'triangle' | 'square' | 'sawtooth';
 export type LfoRate = '16n' | '8n' | '4n' | '2n' | '1n' | '2m' | '4m';
@@ -82,6 +98,11 @@ export type Track = {
    * utan extra MIDI-router i OS.
    */
   midiOutId?: string;
+  /**
+   * Spel-riktning. Default = `forward` (samma som tidigare beteende).
+   * Backward-compat: om fältet saknas i sparad bank tolkas det som forward.
+   */
+  playDirection?: PlayDirection;
   color: string;
   voice: VoiceKind;
   volumeDb: number;
