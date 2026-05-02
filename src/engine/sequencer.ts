@@ -230,7 +230,10 @@ export class Sequencer {
     this.syncVoices(p);
     const tt = Tone.getTransport();
     tt.bpm.value = this.externalTempo ?? p.tempo;
-    tt.swing = p.swing;
+    // Tone.Transport.swing sätts ALLTID till 0 — vi beräknar swing
+    // manuellt per spår i tick() så varje spår kan ha eget värde
+    // (override) eller falla tillbaka till pattern.swing (globalt).
+    tt.swing = 0;
     tt.swingSubdivision = '16n';
   }
 
@@ -274,7 +277,8 @@ export class Sequencer {
     this.syncVoices(this.pattern);
     const tt = Tone.getTransport();
     tt.bpm.value = this.externalTempo ?? this.pattern.tempo;
-    tt.swing = this.pattern.swing;
+    // Manuell per-spår-swing — se setPattern() för förklaring
+    tt.swing = 0;
     tt.swingSubdivision = '16n';
     this.resetRuntimes();
     this.tickCount = 0;
@@ -346,6 +350,10 @@ export class Sequencer {
     const p = this.pattern;
     const stepSec = Tone.Time('16n').toSeconds();
     const anySolo = p.tracks.some((t) => t.solo);
+    // Per-spår-swing: tickCount %2 === 1 = "off-beat" (varannan 16-del),
+    // som skiftas bakåt med swing-värdet * halv stepSec. Off-beat-tickern
+    // efter tickCount=0 är tickCount=1 (a16e i klassisk swing-notation).
+    const isOffBeat = this.tickCount % 2 === 1;
 
     for (const t of p.tracks) {
       const rt = this.runtimes.get(t.id);
@@ -357,6 +365,11 @@ export class Sequencer {
       const inMutedGroup =
         t.muteGroup != null && (p.mutedGroups?.includes(t.muteGroup) ?? false);
       const trackAudible = t.enabled && !inMutedGroup && (!anySolo || t.solo);
+      // Swing-offset: per-spår override eller pattern.swing som fallback.
+      // Off-beat-ticks skiftas bakåt; on-beat-ticks är opåverkade.
+      // Värde 0–0.6 → max ~0.3 av stepSec offset (pålägg på off-beat-en).
+      const trackSwing = t.swing ?? p.swing;
+      const swingOffsetSec = isOffBeat ? trackSwing * (stepSec * 0.5) : 0;
       let fired = false;
 
       // Roll-läge: när rolling är på och DET HÄR spåret är aktivt, tving
@@ -432,7 +445,8 @@ export class Sequencer {
           for (let r = 0; r < ratchet; r++) {
             // Tone har lookahead (~100 ms) så negativ nudge funkar upp till ±50% av steget
             // vid rimliga tempon. Vid mycket höga BPM kan negativ nudge klippas av Tone.
-            const t0 = time + nudgeSec + r * subStep;
+            // swingOffsetSec lägger på off-beat-shift för per-spår swing.
+            const t0 = time + swingOffsetSec + nudgeSec + r * subStep;
             const midisToPlay = isNoise ? [midis[0]] : midis;
             // Vid roll: lägg accent på r=0 (transient-ettan) och dämpa
             // resten lite så det får en naturlig "drum-roll-puls" istället

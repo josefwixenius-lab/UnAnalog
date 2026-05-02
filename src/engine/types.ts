@@ -193,6 +193,17 @@ export type Track = {
    */
   filterResonance?: number;
   /**
+   * Per-spår swing override 0–0.6. Saknat = ärv pattern.swing (default-fall).
+   * Override-modell (ej additiv) — om satt ersätter den globala swingen
+   * helt för detta spår. Klassiskt producent-trick: hihat med 30% swing
+   * mot rakt bas → boom-tss-boom-tss-känsla. J Dilla, neo-soul, lo-fi.
+   *
+   * Notera: Tone.Transport.swing sätts till 0 när per-spår-swing är aktiv.
+   * Sequencer-engine beräknar swingOffset manuellt per tick istället, så
+   * varje spår kan ha olika värde utan kollision.
+   */
+  swing?: number;
+  /**
    * Sidechain-duck: id på det spår vars triggers ska "pumpa" detta spår.
    * Klassiskt synthwave-trick — bass-spåret pumpar pad-spåret så det
    * kvittrar i takt med basen. Saknat = ingen duck.
