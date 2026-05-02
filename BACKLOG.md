@@ -43,12 +43,8 @@ Hela 7-stegs-paketet är byggt och pushat:
 
 ## 🔥 Quick wins (XS–S, hög effekt per timme)
 
-- [ ] **Reverb pre-delay per spår** (S, ~30 min) — 0–150 ms, finns i Tone redan
 - [ ] **Reverb-typ: Hall/Plate/Spring/Shimmer** (M, ~3 h) — olika IR per typ. Shimmer är magi för pad
 - [ ] **EQ per spår** (S, ~1.5 h) — `Tone.EQ3`, low-shelf / mid-peak / high-shelf
-- [ ] **Mute-grupper** (S, ~1.5 h) — tagga spår A/B/C/D, fyra knappar i Transport för live-arrangemang
-- [ ] **Roll/repeat-knapp** (S, ~1.5 h) — håll inne så aktiva spår spelar 1/32-rolls live (utan att skriva i grid)
-- [ ] **Chorus-djup-kontroller** (XS, ~30 min) — exponera depth + rate (idag fasta 1.5 Hz / 0.7)
 - [ ] **Per-step pan** (S, ~1.5 h) — auto-panning utöver baseline-pan, för rörlig stereo
 
 ---
@@ -149,3 +145,7 @@ Hela 7-stegs-paketet är byggt och pushat:
 - ✅ Per-spår filter cutoff + resonans baseline (LFO+filterLock modulerar runt)
 - ✅ Sidechain-duck (trigger-baserad pump, källa+amount+release per spår)
 - ✅ Virtuell pianoklaviatur (25/37/49/61 tangenter) med audition + skala-highlight
+- ✅ 🥁 Roll/repeat-knapp (håll-att-rulla på aktivt spår, tangent R, 1/64-puls)
+- ✅ Mute-grupper A/B/C/D (Transport-toggle + per-spår grp-tagg)
+- ✅ Chorus-djup (rate + depth per spår, live-justerbart)
+- ✅ Reverb pre-delay per spår (0–150 ms, för båda Short/Long sends)
