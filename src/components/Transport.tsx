@@ -19,6 +19,13 @@ type Props = {
   recording: boolean;
   recordAvailable: boolean;
   onToggleRecord: () => void;
+  /**
+   * Roll/repeat: håll-att-rulla på aktivt spår. Aktiveras med mus-down på
+   * knappen ELLER tangent R. true = rullar nu (1/64-puls override).
+   */
+  rolling: boolean;
+  onRollDown: () => void;
+  onRollUp: () => void;
   clockSource: ClockSource;
   onClockSourceChange: (src: ClockSource) => void;
   externalBpm: number | null;
@@ -50,6 +57,9 @@ export function Transport({
   recording,
   recordAvailable,
   onToggleRecord,
+  rolling,
+  onRollDown,
+  onRollUp,
   clockSource,
   onClockSourceChange,
   externalBpm,
@@ -109,6 +119,21 @@ export function Transport({
       >
         <span className="btn__rec-dot" aria-hidden="true" />
         {recording ? 'Rec' : recordArmed ? 'Arm' : 'Rec'}
+      </button>
+
+      <button
+        className={`btn btn--roll ${rolling ? 'is-on' : ''}`}
+        // Mus-down/up för "håll-att-rulla". onMouseLeave fångar fall där
+        // användaren drar bort musen från knappen utan att släppa — annars
+        // skulle rolling fastna i true.
+        onMouseDown={onRollDown}
+        onMouseUp={onRollUp}
+        onMouseLeave={onRollUp}
+        // Förhindra context-menu vid höger-klick så rolling inte fastnar
+        onContextMenu={(e) => e.preventDefault()}
+        title="Håll inne för 1/64-roll på AKTIVT spår (tangent: R). Släpp för att gå tillbaka. Tryck Z/X för att flytta rullen mellan spår medan du håller."
+      >
+        🥁 Roll
       </button>
 
       <div

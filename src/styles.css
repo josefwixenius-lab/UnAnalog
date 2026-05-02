@@ -239,6 +239,24 @@ body {
   50% { box-shadow: 0 0 0 6px rgba(224, 70, 94, 0); }
 }
 
+/* --- Roll-knapp (håll-att-rulla, 1/64 på aktivt spår) ----------------- */
+.btn--roll {
+  min-width: 76px;
+  font-weight: 600;
+  user-select: none;
+  cursor: pointer;
+}
+.btn--roll.is-on {
+  background: var(--accent-2);
+  color: #0b0d12;
+  border-color: var(--accent-2);
+  animation: roll-pulse 0.18s ease-in-out infinite;
+}
+@keyframes roll-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(247, 200, 115, 0.55); }
+  50% { box-shadow: 0 0 0 4px rgba(247, 200, 115, 0); }
+}
+
 .chip {
   background: var(--bg-cell);
   color: var(--text);

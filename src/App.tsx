@@ -247,6 +247,10 @@ export default function App() {
   // får clean start utan mittislag-skräp.
   const [recordArmed, setRecordArmed] = useState(false);
   const [recording, setRecording] = useState(false);
+  // Roll/repeat: håll-att-rulla på aktivt spår. Aktiveras både via mus-down
+  // på Transport-knappen och via tangent 'R'. State delas så båda kanaler
+  // ger samma indikator.
+  const [rolling, setRolling] = useState(false);
   const recordingRef = useRef(false);
   useEffect(() => {
     recordingRef.current = recording;
@@ -343,6 +347,62 @@ export default function App() {
   useEffect(() => {
     seqRef.current!.setClockEnabled(clockOutEnabled && !!selectedClockMidi);
   }, [clockOutEnabled, selectedClockMidi]);
+
+  // Roll-state vidare till sequencern. Effekten triggar både vid keydown
+  // och knapp-mousedown eftersom båda fyrar samma setRolling.
+  useEffect(() => {
+    seqRef.current!.setRolling(rolling);
+  }, [rolling]);
+
+  // Tangent 'R' för håll-att-rulla. Lyssnar globalt men respekterar
+  // input/select-fokus (annars skulle man inte kunna skriva ett namn med
+  // bokstaven r). e.repeat ignoreras så vi inte spammar setState när
+  // OS:et auto-repetar tangenten.
+  const rollPressedRef = useRef(false);
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA' ||
+          tag === 'SELECT' ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+      }
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        rollPressedRef.current = true;
+        setRolling(true);
+      }
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key === 'r' || e.key === 'R') {
+        rollPressedRef.current = false;
+        setRolling(false);
+      }
+    };
+    // Safety: om fönstret tappar fokus medan R är intryckt, släpp rolling
+    // (annars rullar det för evigt tills man trycker R igen).
+    const onBlur = () => {
+      if (rollPressedRef.current) {
+        rollPressedRef.current = false;
+        setRolling(false);
+      }
+    };
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, []);
 
   useEffect(() => {
     seqRef.current!.setPattern(pattern);
@@ -959,6 +1019,9 @@ export default function App() {
           recording={recording}
           recordAvailable={midiIns.length > 0}
           onToggleRecord={onToggleRecord}
+          rolling={rolling}
+          onRollDown={() => setRolling(true)}
+          onRollUp={() => setRolling(false)}
           clockSource={clockSource}
           onClockSourceChange={setClockSource}
           externalBpm={externalBpm}

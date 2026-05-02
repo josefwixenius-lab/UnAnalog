@@ -140,6 +140,14 @@ export class Sequencer {
   private tickCount = 0;
   private clockEnabled = false;
   private externalTempo: number | null = null;
+  /**
+   * Roll/repeat-läge: när true tvingar aktivt spår fram en kontinuerlig
+   * 1/64-puls oavsett gate.active eller villkor. Använd current pitch
+   * (rt.pitchIdx) så det rullar SAMMA ton som spåret skulle ha spelat.
+   * Avsedd för live-fills — håll inne, släpp för att gå tillbaka till
+   * normalt step-flöde. Tangent: R, eller mus-down på Roll-knappen.
+   */
+  private rolling = false;
 
   constructor(initial: Pattern, cb: SequencerCallbacks = {}) {
     this.pattern = initial;
@@ -244,6 +252,10 @@ export class Sequencer {
     this.cb = cb;
   }
 
+  setRolling(rolling: boolean) {
+    this.rolling = rolling;
+  }
+
   setClockEnabled(enabled: boolean) {
     this.clockEnabled = enabled;
     if (!enabled && this.clockScheduleId !== null) {
@@ -343,9 +355,15 @@ export class Sequencer {
       const trackAudible = t.enabled && (!anySolo || t.solo);
       let fired = false;
 
-      if (gate && pitch && gate.active && trackAudible) {
-        const condPass = evalCondition(gate.condition, rt, p.fillActive);
-        const probPass = Math.random() <= gate.probability;
+      // Roll-läge: när rolling är på och DET HÄR spåret är aktivt, tving
+      // fram en kontinuerlig 1/64-puls oavsett gate.active eller villkor.
+      // Spelar SAMMA pitch som spåret skulle ha spelat (rt.pitchIdx) så
+      // rollet följer melodin. Andra spår spelar normalt.
+      const isRolling = this.rolling && t.id === p.activeTrackId && trackAudible;
+
+      if (gate && pitch && (gate.active || isRolling) && trackAudible) {
+        const condPass = isRolling ? true : evalCondition(gate.condition, rt, p.fillActive);
+        const probPass = isRolling ? true : Math.random() <= gate.probability;
         if (condPass && probPass) {
           fired = true;
           const allNotes = [
@@ -361,7 +379,9 @@ export class Sequencer {
               n.octaveOffset,
             ),
           );
-          const ratchet = Math.max(1, Math.min(4, gate.ratchet));
+          // Roll = ratchet 4 (1/64 på 16-del-tick) oavsett vad gate.ratchet
+          // är inställt på. Annars normal ratchet 1–4.
+          const ratchet = isRolling ? 4 : Math.max(1, Math.min(4, gate.ratchet));
           const subStep = stepSec / ratchet;
           // Slide förlänger noten: dur ökar mot nästa step så MIDI får
           // overlap (legato → trigga portamento på extern synth) och
@@ -369,8 +389,14 @@ export class Sequencer {
           // slideTime: 0 = snapp, 1 = full step. Default 0.5 om saknat.
           const slideAmt = pitch.slide ? clamp(pitch.slideTime ?? 0.5, 0, 1) : 0;
           const slideExtra = slideAmt * stepSec * 0.85;
-          const dur = Math.max(0.01, subStep * gate.gate + slideExtra);
-          const baseVel = typeof gate.velocity === 'number' ? gate.velocity : 0.8;
+          // Roll använder kort gate (0.6) så transienter hörs distinkta;
+          // normalt step använder gate.gate.
+          const baseGate = isRolling ? 0.6 : gate.gate;
+          const dur = Math.max(0.01, subStep * baseGate + slideExtra);
+          // Roll-velocity bygger en svag accent på 1:an varje fjärde
+          // sub-trigg så det hörs som "drum-roll med 4-takt-pulse" snarare
+          // än flat machine-gun. Implementeras nedan i ratchet-loopen.
+          const baseVel = isRolling ? 0.78 : (typeof gate.velocity === 'number' ? gate.velocity : 0.8);
           const jitter = typeof t.velocityJitter === 'number' ? t.velocityJitter : 0;
           const nudgeFrac = clamp(typeof gate.nudge === 'number' ? gate.nudge : 0, -0.5, 0.5);
           const nudgeSec = nudgeFrac * stepSec;
@@ -404,7 +430,16 @@ export class Sequencer {
             // vid rimliga tempon. Vid mycket höga BPM kan negativ nudge klippas av Tone.
             const t0 = time + nudgeSec + r * subStep;
             const midisToPlay = isNoise ? [midis[0]] : midis;
-            const velocity = computeVelocity(baseVel, gate.accent, jitter);
+            // Vid roll: lägg accent på r=0 (transient-ettan) och dämpa
+            // resten lite så det får en naturlig "drum-roll-puls" istället
+            // för machine-gun. Vid normal ratchet: vanlig accent från gate.
+            const accent = isRolling ? r === 0 : gate.accent;
+            const rollVel = isRolling
+              ? r === 0
+                ? baseVel
+                : baseVel * 0.75
+              : baseVel;
+            const velocity = computeVelocity(rollVel, accent, jitter);
             for (const midi of midisToPlay) {
               voice?.voice.trigger(midi, dur, t0, velocity, { filterLock: gate.filterLock });
               this.cb.onNote?.({
