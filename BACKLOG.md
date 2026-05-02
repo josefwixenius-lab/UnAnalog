@@ -5,6 +5,26 @@ Framtida idéer i ungefärlig prioriteringsordning. Flytta uppåt/nedåt när pr
 
 ---
 
+## 🎯 Nästa upp — top 3 om du vill plocka nåt smått (≈7 h totalt)
+
+Mina rekommendationer i prioordning. Plocka en när det känns rätt; ingen brådska.
+
+1. **EQ per spår** (S, ~1.5 h) — naturliga nästa steg efter FX-paketet. `Tone.EQ3`
+   med low-shelf / mid-peak / high-shelf. Synthwave-bas trivs med en boost runt
+   80–100 Hz och en notch vid 3 kHz för att inte mosa lead-spåret.
+
+2. **Audio export (.wav)** (S, ~2 h) — bygg klart en låt och spara som ljudfil
+   för delning/mastering. `Tone.Offline` gör det relativt smärtfritt — vi
+   schedulerar X takter, bouncar offline och triggar en download.
+
+3. **MIDI-CC out per spår** (M, ~4 h) — du har bra hårdvara. Att kunna skicka
+   filter-cutoff från UnAnalogs LFO till JT-4000:s expression-input (eller
+   Model D / ESI / JV-1010 osv) öppnar riggen på ett helt annat sätt än bara
+   noter. Per-spår välj källa (LFO / per-step automation / fast värde) + vilken
+   CC + kanal.
+
+---
+
 ## 🎯 Synthwave-vägen — KLAR 🎉
 
 Hela 7-stegs-paketet är byggt och pushat:
