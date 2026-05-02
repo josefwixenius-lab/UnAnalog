@@ -282,9 +282,28 @@ export function Manual({ open, onClose }: Props) {
                     melodi" som ändå håller sig i ett område.</li>
                 </ul>
               </dd>
+              <dt>Swing (per spår)</dt>
+              <dd>
+                Override-modell: lämnas vid <em>↳12%</em> (eller vad pattern-swingen råkar vara)
+                ärvs den globala swingen från Transport. När du drar slidern blir det en
+                <em>egen</em> swing för spåret, t.ex. <strong>30%</strong>. Klicka
+                värde-knappen till höger om slidern (eller dubbelklicka slidern) för att
+                återgå till global. <br />
+                <strong>Klassiskt producent-trick:</strong> hihat med 30% swing över rakt
+                bas → boom-tss-boom-tss-känsla (J Dilla / neo-soul / lo-fi hip-hop / synthwave-ballader).
+                Eller pad svängande + perc rakt = "andas runt" elementet.
+              </dd>
               <dt>Oktav-shift</dt>
               <dd>Flyttar bara detta spår ±1 oktav. Bra för bas vs lead.</dd>
             </dl>
+            <TipBox>
+              <strong>Två-rads-layout:</strong> spår-listan har två logiska rader per spår —
+              <em> Rad 1</em> (live-kontroller: M, S, vol, pan) och <em>Rad 2</em>
+              (sound-design: voice, dir, swing, ch, port, grp). På breda skärmar (&gt; 1400 px)
+              ligger båda raderna sida-vid-sida; på smalare skärmar staplas de automatiskt så
+              alla spår beter sig lika. Tips: spara fönsterbredden så TrackStrip behåller den
+              layout du föredrar.
+            </TipBox>
             <TipBox>
               <strong>Klassiskt synthwave-trick:</strong> kör samma 8-step arp på två
               spår — ett på <strong>▶ Framåt</strong>, ett på <strong>◀ Bakåt</strong>,

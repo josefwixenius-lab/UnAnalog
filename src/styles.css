@@ -452,8 +452,9 @@ body {
 
 .trackstrip__item {
   display: inline-flex;
+  flex-direction: row; /* default: 1-rad layout (rad 1 + rad 2 sida-vid-sida) */
   align-items: center;
-  gap: 6px;
+  gap: 12px;
   padding: 6px 8px;
   background: var(--bg-cell);
   border: 1px solid var(--border);
@@ -466,6 +467,46 @@ body {
   box-shadow: 0 0 0 2px rgba(126, 231, 193, 0.25) inset;
 }
 .trackstrip__item.is-muted { opacity: 0.55; }
+
+/* Rad 1 (live) + Rad 2 (setup). Default ligger de sida-vid-sida; vid smal
+   skärm (< 1400 px) flippar item till column-layout så de staplas. */
+.trackstrip__row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.trackstrip__row--secondary {
+  /* Subtil visuell separation från primary-raden — bara på 1-rads-layout
+     ser man en tunn vertikal linje mellan rad 1 och rad 2. */
+  position: relative;
+}
+.trackstrip__row--secondary::before {
+  content: '';
+  display: inline-block;
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  margin-right: 4px;
+  opacity: 0.7;
+}
+
+/* Smal skärm: stapla raderna. Brytpunkt valt för att täcka 13" laptops
+   (1280–1440 px viewport) som behöver mer luft per spår. Alla spår
+   beter sig lika eftersom samma media query gäller hela trackstrip. */
+@media (max-width: 1400px) {
+  .trackstrip__item {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .trackstrip__row {
+    width: 100%;
+  }
+  .trackstrip__row--secondary::before {
+    display: none; /* dölj separator-linjen i column-mode */
+  }
+}
 
 .trackstrip__color {
   width: 12px;
@@ -540,6 +581,37 @@ body {
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Per-spår swing-slider med global-fallback. */
+.trackstrip__swing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.trackstrip__swing input[type='range'] {
+  width: 56px;
+}
+.unit--btn {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 10px;
+  color: var(--text);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+  border-radius: 3px;
+}
+.unit--btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.unit--btn.is-global {
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 /* Mute-grupp-tagg per spår */

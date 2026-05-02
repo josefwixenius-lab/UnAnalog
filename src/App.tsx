@@ -705,19 +705,6 @@ export default function App() {
     [updatePattern],
   );
 
-  // Per-spår swing override. null = återgå till globalt (saknat fält
-   // → engine använder pattern.swing som fallback i tick).
-  const onChangeSwing = useCallback(
-    (next: number | null) =>
-      updatePattern((p) =>
-        updateActiveTrack(p, (t) => ({
-          ...t,
-          swing: next ?? undefined,
-        })),
-      ),
-    [updatePattern],
-  );
-
   // Sidechain — sätter sourceId/amount/release på aktivt spår. `null` på
   // sourceId = "av" (sätter undefined så engine ignorerar duck).
   const onChangeSidechain = useCallback(
@@ -1193,9 +1180,6 @@ export default function App() {
             filterCutoff={activeTrack.filterCutoff}
             filterResonance={activeTrack.filterResonance}
             onChangeFilter={onChangeFilter}
-            trackSwing={activeTrack.swing}
-            globalSwing={pattern.swing}
-            onChangeSwing={onChangeSwing}
             sidechainSources={pattern.tracks
               .filter((tt) => tt.id !== activeTrack.id)
               .map((tt) => ({ id: tt.id, name: tt.name }))}

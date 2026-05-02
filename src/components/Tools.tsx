@@ -45,11 +45,6 @@ type Props = {
   filterCutoff: number | undefined;
   filterResonance: number | undefined;
   onChangeFilter: (patch: { filterCutoff?: number | null; filterResonance?: number | null }) => void;
-  /** Per-spår swing override. undefined = ärv från pattern.swing. */
-  trackSwing: number | undefined;
-  /** Globalt pattern.swing — visas som fallback-värde i UI. */
-  globalSwing: number;
-  onChangeSwing: (next: number | null) => void;
   /** Lista över andra spår som kan vara sidechain-källor. */
   sidechainSources: SidechainSource[];
   sidechainSourceId: string | undefined;
@@ -90,9 +85,6 @@ export function Tools({
   filterCutoff,
   filterResonance,
   onChangeFilter,
-  trackSwing,
-  globalSwing,
-  onChangeSwing,
   sidechainSources,
   sidechainSourceId,
   sidechainAmount,
@@ -296,41 +288,6 @@ export function Tools({
         >
           ↺ Default
         </button>
-      </div>
-
-      <div className="field-row field-row--swing">
-        <span className="group__label">Swing</span>
-        <label
-          className="field"
-          title="Per-spår swing override 0–60%. Lämnas vid 'Global' = ärver pattern.swing. Klassiskt: hihat med 30% swing över rakt bas (J Dilla / neo-soul / lo-fi)."
-        >
-          <span>
-            {trackSwing == null
-              ? `↳ Global (${Math.round(globalSwing * 100)}%)`
-              : `${Math.round(trackSwing * 100)}%`}
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={0.6}
-            step={0.01}
-            value={trackSwing ?? globalSwing}
-            onChange={(e) => onChangeSwing(Number(e.target.value))}
-            onDoubleClick={() => onChangeSwing(null)}
-          />
-        </label>
-        <button
-          className="chip chip--reset"
-          onClick={() => onChangeSwing(null)}
-          disabled={trackSwing == null}
-          title="Återställ till global swing (pattern.swing)"
-        >
-          ↺ Global
-        </button>
-        <small className="hint">
-          Override-modell — om satt ersätter värdet pattern.swing för detta spår.
-          Dubbelklicka slidern eller klicka ↺ Global för att återgå.
-        </small>
       </div>
 
       <div className="field-row field-row--sidechain">
