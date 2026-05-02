@@ -5,43 +5,37 @@ Framtida idéer i ungefärlig prioriteringsordning. Flytta uppåt/nedåt när pr
 
 ---
 
-## 🎯 Min rekommendation: synthwave-väg (≈13 h totalt)
+## 🎯 Synthwave-vägen — KLAR 🎉
 
-Om du vill bygga en synthwave-perfekt setup steg för steg:
+Hela 7-stegs-paketet är byggt och pushat:
+- ✅ Per-spår pan (Fas 1, commit `13165a5`)
+- ✅ Variabel slide-tid per step (Fas 1)
+- ✅ Delay-djup: feedback + tid + tape-mode (Fas 2, commit `8674cdb`)
+- ✅ Reverb Short/Long sends (Fas 2)
+- ✅ Chorus per spår (Fas 2)
+- ✅ Bitcrusher per spår (Fas 2)
+- ✅ Per-spår filter cutoff + resonans baseline (Fas 3, commit `e0ff6d8`)
+- ✅ Sidechain-duck (Fas 4, commit `a86c1b7`)
 
-1. Per-spår pan (XS, 30 min)
-2. Variabel slide-tid per step (S, ~1 h)
-3. Delay-feedback + tid per spår (S, ~2 h)
-4. Reverb-system med Short/Long send + decay-trim (M, ~3 h)
-5. Sidechain-duck (M, ~4 h) — *bass-pump-tricket*
-6. Chorus + bitcrusher per spår (S, ~1 h)
-7. Per-spår filter cutoff/resonans baseline (S, ~1.5 h)
+→ Manual §9 har ett komplett "🌆 Synthwave FX-recept" med 4-spårsuppställning.
 
 ---
 
 ## 🔥 Quick wins (XS–S, hög effekt per timme)
 
-- [ ] **Per-spår pan** (XS, ~30 min) — `Tone.Panner` per spår, slider i TrackStrip. Stereobild direkt
-- [ ] **Variabel slide-tid per step** (S, ~1 h) — `slideTime` 0–1 på PitchStep mappar till 0–200 ms portamento. Idag binär flagga
-- [ ] **Bitcrusher-FX per spår** (XS, ~30 min) — `Tone.BitCrusher` i FX-chain, fjärde knob bredvid delay/reverb/sat. Glitch-favorit
-- [ ] **Filter cutoff + resonans baseline per voice** (S, ~1.5 h) — idag finns bara per-step `filterLock`. Lägg till en "vilo-cutoff" man kan modulera mot
-- [ ] **Delay-feedback per spår** (S, ~1 h) — egen delay-instans per spår, slider 0–0.95
-- [ ] **Delay-tid per spår** (S, ~1.5 h) — dropdown 1/4, 1/8, 1/8., 1/8T, 1/16, 1/16T, 1/32
-- [ ] **Tape-delay-mode** (S, ~1 h) — pitch-svaj på feedback (LFO på delayTime). Fett retro
 - [ ] **Reverb pre-delay per spår** (S, ~30 min) — 0–150 ms, finns i Tone redan
+- [ ] **Reverb-typ: Hall/Plate/Spring/Shimmer** (M, ~3 h) — olika IR per typ. Shimmer är magi för pad
 - [ ] **EQ per spår** (S, ~1.5 h) — `Tone.EQ3`, low-shelf / mid-peak / high-shelf
-- [ ] **Chorus per spår** (S, ~1 h) — synthwave-leads behöver det
 - [ ] **Mute-grupper** (S, ~1.5 h) — tagga spår A/B/C/D, fyra knappar i Transport för live-arrangemang
 - [ ] **Roll/repeat-knapp** (S, ~1.5 h) — håll inne så aktiva spår spelar 1/32-rolls live (utan att skriva i grid)
+- [ ] **Chorus-djup-kontroller** (XS, ~30 min) — exponera depth + rate (idag fasta 1.5 Hz / 0.7)
+- [ ] **Per-step pan** (S, ~1.5 h) — auto-panning utöver baseline-pan, för rörlig stereo
 
 ---
 
 ## ⭐ Större men jätteroliga (M, 3–5 h vardera)
 
-- [ ] **Sidechain-duck** — välj "key track", target dippar volymen vid varje hit. *Det* synthwave-pump-tricket
 - [ ] **Per-spår step-rate** — 1/8, 1/16, 1/32, 1/8T. Riktig polyrytm-frihet (utöver polymeter)
-- [ ] **Reverb-system uppgraderat** — 2 globala reverbs (Short ~1.5 s, Long ~8 s) + per-spår send till båda + decay-trim. Per-spår reverb är CPU-tungt, detta är smart kompromiss
-- [ ] **Reverb-typ: Hall/Plate/Spring/Shimmer** — olika IR per typ. Shimmer (pitch-shift i feedback) är magi för synthwave-pads
 - [ ] **MIDI-CC out per spår** — skicka filter-cutoff från LFO till JT-4000:s expression-pedal-CC. Öppnar enorma möjligheter med din hårdvara
 - [ ] **Pattern-morphing A→B** — automatisk crossfade mellan två slots över N takter
 - [ ] **A/D/S/R-kontroller per voice** (amp + filter envelope) — basis-synthesis
@@ -126,3 +120,11 @@ Om du vill bygga en synthwave-perfekt setup steg för steg:
 - ✅ Separat Clock-port (LMDrum kan synkas medan JT-4000 får noterna)
 - ✅ Loop-rec — jamma in noter live från MIDI-in i aktivt spår, gate-längd från duration
 - ✅ Spel-riktning per spår (▶ ◀ ◀▶ 🎲 ➰) — SQ-10/BQ-10-inspirerad
+- ✅ Per-spår pan med L/C/R-indikator
+- ✅ Variabel slide-tid per step (legato/portamento-mängd)
+- ✅ FX-djupet: per-spår delay-instans (mix/tid/feedback/mode med tape-svaj)
+- ✅ Reverb Short (~1.2s) + Long (~6.5s) globala instanser med per-spår sends
+- ✅ Chorus per spår (synthwave-essentiellt)
+- ✅ Bitcrusher per spår (8→2 bit)
+- ✅ Per-spår filter cutoff + resonans baseline (LFO+filterLock modulerar runt)
+- ✅ Sidechain-duck (trigger-baserad pump, källa+amount+release per spår)

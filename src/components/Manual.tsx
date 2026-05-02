@@ -17,7 +17,7 @@ const SECTIONS: Section[] = [
   { id: 'pitch', title: '6. Pitch-spåret: toner, oktaver, ackord, glid' },
   { id: 'gate', title: '7. Gate-spåret: rytmen och alla per-steg-parametrar' },
   { id: 'stepview', title: '8. Step-editor: kompakt vs detaljerat läge' },
-  { id: 'tools', title: '9. Verktyg: längder, euklidisk, rotera, LFO, jitter, humanize, FX' },
+  { id: 'tools', title: '9. Verktyg: längder, filter, sidechain, LFO, FX-djup' },
   { id: 'quick', title: '10. Snabbåtgärder & copy/paste av rader' },
   { id: 'styles', title: '11. Stilpresets + 🎲 Slumpa nytt pattern' },
   { id: 'chord', title: '12. Ackord-input, sekvensinspelning & loop-rec' },
@@ -250,6 +250,10 @@ export function Manual({ open, onClose }: Props) {
               <dt>Volym (dB)</dt>
               <dd>Endast för intern-ljudet. MIDI-velocity styrs av gate-stegets velocity
                 (§7).</dd>
+              <dt>Pan (L/C/R)</dt>
+              <dd>Stereoposition. Sliden visar L/C/R + procent. Dubbelklicka för att
+                centrera. Påverkar både dry-signalen OCH alla FX-sends, så delay/reverb-
+                svansen stannar i samma stereoposition som spåret.</dd>
               <dt>MIDI-kanal</dt>
               <dd>1–16. Matchar kanalen i din DAW eller hårdvara. Sätt varje spår på unik
                 kanal så styr du olika instrument på samma enhet.</dd>
@@ -312,8 +316,11 @@ export function Manual({ open, onClose }: Props) {
                 toner på samma steg (t.ex. tersen och kvinten). Ackordet spelas samtidigt.
               </li>
               <li>
-                <strong>Glid (slide)</strong> — skickar slide-info över MIDI. Vissa
-                DAW-instrument (t.ex. Logic ES2) reagerar på portamento-CC.
+                <strong>Glid (slide) + slide-tid</strong> — när slide är på exponeras en
+                tid-slider 0–100%. Det förlänger steget mot nästa så internal-voice
+                sustainer ut hela glide-tiden OCH MIDI-utgången får legato-overlap (vilket
+                triggar portamento på extern synth — JT-4000, Model D etc). 0 = snärtigt,
+                100 = full step-längd.
               </li>
             </ul>
             <Example>
@@ -434,34 +441,77 @@ export function Manual({ open, onClose }: Props) {
               <dt>Humanize nudge</dt>
               <dd>Slumpar timing-nudge på alla steg inom ±styrkan. Klicka upprepat för nya
                 varianter. Subtilt: 5–10%. "Drunken MPC": 20–30%.</dd>
-              <dt>Effekter — Delay / Reverb / Saturation</dt>
+              <dt>Filter — Cutoff + Resonans (per-spår baseline)</dt>
               <dd>
-                Per-spår FX-send. Varje spår har sin egen wet-nivå (0–100%), men nodsatsen
-                är delad globalt så cpu-kostnaden håller sig låg oavsett antal spår:
+                Cutoff-slidern sätter spårets <em>baseline-frekvens</em> (80 Hz–16 kHz, log).
+                Per-step <kbd>filter-lock</kbd> och LFO modulerar fortfarande RUNT detta
+                värde. Resonansen styr Q (0.7–12). Dubbelklicka för att återgå till
+                voice-defaulten.
+                <br />
+                <strong>Acid-bas-recept:</strong> bass-voice + cutoff 30% + resonans 60%
+                + LFO target=filter, depth 70%, rate 4n. Direkt 303-territorium.
+              </dd>
+
+              <dt>Sidechain — pump/duck</dt>
+              <dd>
+                Klassiskt synthwave-trick: bass-spåret pumpar pad-spåret så det "andas"
+                i takt. Välj <em>Källa</em> (vilket spår som triggar pumpen), justera
+                <em> Pump</em> 0–100% (40–70% är synthwave-sweet-spot) och <em>Release</em>
+                50–500 ms (kortare = snärtigt, längre = breath). Pumpen är trigger-baserad
+                (per-transient envelope), inte audio-follower — så ratchets pumpar i takt
+                med ratcheten.
+              </dd>
+
+              <dt>Delay (per-spår-instans)</dt>
+              <dd>
                 <ul>
-                  <li><strong>Delay</strong> — ping-pong sync:ad till 1/8. Ger rum och
-                    rörelse. Fungerar extra bra på sparsamma leads/pluckar.</li>
-                  <li><strong>Reverb</strong> — stor hall (~3.2 s decay). Mjukar soundet
-                    och sätter spåret i ett rum. För mycket på bas → plottrigt, så dosera
-                    lätt där.</li>
-                  <li><strong>Saturation</strong> — parallell drive/tape-mättnad. Lägger
-                    analog värme och bränner upp transienter. Fantastiskt på hats och bas,
-                    försiktigt på pads.</li>
+                  <li><strong>Mix</strong> — wet-nivå mot delay-bussen.</li>
+                  <li><strong>Tid</strong> — musikalisk subdivision: 1/4, 1/8., 1/8, 1/8T,
+                    1/16., 1/16, 1/16T, 1/32. Punkterad och triol är mest synthwave-vibb.</li>
+                  <li><strong>FB</strong> (feedback) — 0–95%. Över 80% går mot
+                    self-oscillation; håll runt 30–60% för smakfullt eko.</li>
+                  <li><strong>Mode</strong> — <em>Ping-pong</em> (klassisk stereo),
+                    <em> Mono</em> (Space Echo-känsla), <em>Tape</em> (LFO på delaytid →
+                    ±5% pitch-svaj, vintage tape-vibration).</li>
                 </ul>
-                <kbd>↺ Torrt</kbd> nollställer alla tre på aktivt spår.
+              </dd>
+
+              <dt>Reverb — Short + Long sends</dt>
+              <dd>
+                Två globala reverb-instanser som varje spår skickar till oberoende:
+                <ul>
+                  <li><strong>Short</strong> (~1.2 s) — intim plate-känsla, bra för leads
+                    och attack-färg.</li>
+                  <li><strong>Long</strong> (~6.5 s) — synthwave-pad-svans i FM-84-territory.
+                    Lägg på pad-spåret + lite på lead för bakgrund.</li>
+                </ul>
+                Du kan blanda båda för komplexa rumsbilder — kort + lång samtidigt ger
+                "intimt med svans".
+              </dd>
+
+              <dt>Karaktär — Saturation / Chorus / Crush</dt>
+              <dd>
+                <ul>
+                  <li><strong>Saturation</strong> — drive/tape-mättnad. Värme och brända
+                    transienter. Fantastiskt på hats och bas.</li>
+                  <li><strong>Chorus</strong> — stereo-chorus 1.5 Hz / depth 0.7 / spread
+                    180°. Tjockar leads och pad i bredden. <em>Synthwave-essentiellt</em>.</li>
+                  <li><strong>Crush</strong> — bitcrusher 8-bit ner mot 2-bit. Glitch/lo-fi
+                    på hats och perc; försiktigt på melodisk material.</li>
+                </ul>
+                <kbd>↺ Torrt</kbd> nollställer alla mix-värden.
               </dd>
             </dl>
             <TipBox>
-              Delay och reverb är <em>delade</em> noder — så du hör inte reverb-svans från
-              ett spår som råkar dela våg med ett annat. Men saturation är parallell per
-              spår och blandas in efter spårets dry-signal, så det låter naturligt bredvid
-              ett helt rent spår.
+              <strong>🌆 Synthwave FX-recept:</strong>
+              <ol>
+                <li>Bas: cutoff 35%, reso 30%, mono delay 15% @ 1/16, FB 40%, lite saturation 20%.</li>
+                <li>Lead: chorus 40%, short reverb 30%, ping-pong delay 25% @ 1/8., FB 45%.</li>
+                <li>Pad: long reverb 70%, chorus 60%, sidechain källa = bass-spåret, pump 55%, release 200 ms.</li>
+                <li>Hats: short reverb 15%, crush 30%, saturation 35%, hård panning ±60%.</li>
+              </ol>
+              Kombinationen av sidechain, lång reverb och chorus ÄR synthwave-soundtracket.
             </TipBox>
-            <Example>
-              Klassisk dub-feel: lite delay (40%) på lead-spåret, accent på 1:orna,
-              probability 60% på ratchets. Sätt reverb (25%) på pad-spåret för att få
-              bakgrund. Låt bas och hats vara helt torra.
-            </Example>
           </section>
 
           {/* === 10. QUICK ACTIONS === */}
