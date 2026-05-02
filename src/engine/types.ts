@@ -134,6 +134,10 @@ export type TrackFx = {
   // --- Modulation + krasch ---
   /** Chorus-wet 0–1. Per-spår-instans. Default 0. */
   chorus?: number;
+  /** Chorus-rate (LFO-frekvens) 0.1–6 Hz. Default 1.5 Hz. */
+  chorusRate?: number;
+  /** Chorus-depth 0–1 (modulationsmängd). Default 0.7. */
+  chorusDepth?: number;
   /** Bitcrusher-wet 0–1. Per-spår-instans. Default 0. */
   bitcrusher?: number;
 };

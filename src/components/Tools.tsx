@@ -434,6 +434,8 @@ export function Tools({
         const reverbShort = fx.reverbShort ?? 0;
         const reverbLong = fx.reverbLong ?? fx.reverb;
         const chorus = fx.chorus ?? 0;
+        const chorusRate = fx.chorusRate ?? 1.5;
+        const chorusDepth = fx.chorusDepth ?? 0.7;
         const crusher = fx.bitcrusher ?? 0;
         const allDry =
           delayMix === 0 &&
@@ -550,7 +552,7 @@ export function Tools({
               </label>
               <label
                 className="field"
-                title="Stereo-chorus (sin 1.5 Hz, depth 0.7). Tjockar leads och pad i bredden."
+                title="Stereo-chorus wet-mängd. Tjockar leads och pad i bredden. Rate och depth styr karaktären."
               >
                 <span>Chorus {Math.round(chorus * 100)}%</span>
                 <input
@@ -560,6 +562,40 @@ export function Tools({
                   step={0.02}
                   value={chorus}
                   onChange={(e) => onChangeFx({ chorus: Number(e.target.value) })}
+                />
+              </label>
+              <label
+                className="field"
+                title="Chorus rate (LFO-frekvens). Långsamt = drömskt svaj (0.3 Hz), snabbt = vibrato-känsla (4 Hz). Default 1.5 Hz."
+              >
+                <span>· rate {chorusRate.toFixed(1)} Hz</span>
+                <input
+                  type="range"
+                  min={0.1}
+                  max={6}
+                  step={0.1}
+                  value={chorusRate}
+                  onChange={(e) =>
+                    onChangeFx({ chorusRate: Number(e.target.value) })
+                  }
+                  disabled={chorus === 0}
+                />
+              </label>
+              <label
+                className="field"
+                title="Chorus depth (modulationsmängd). Lite (0.2) = subtilt, mycket (1.0) = rejäl swirl. Default 0.7."
+              >
+                <span>· depth {Math.round(chorusDepth * 100)}%</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.02}
+                  value={chorusDepth}
+                  onChange={(e) =>
+                    onChangeFx({ chorusDepth: Number(e.target.value) })
+                  }
+                  disabled={chorus === 0}
                 />
               </label>
               <label

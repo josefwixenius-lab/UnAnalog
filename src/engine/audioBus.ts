@@ -324,6 +324,8 @@ export class TrackFxChain {
     const reverbLong = clamp01(fx.reverbLong ?? fx.reverb);
     const sat = clamp01(fx.saturation);
     const chorus = clamp01(fx.chorus ?? 0);
+    const chorusRate = Math.max(0.1, Math.min(6, fx.chorusRate ?? 1.5));
+    const chorusDepth = clamp01(fx.chorusDepth ?? 0.7);
     const crusher = clamp01(fx.bitcrusher ?? 0);
 
     // Dry minskar något när saturation eller bitcrusher är uppe så effekten
@@ -338,6 +340,11 @@ export class TrackFxChain {
 
     // Saturationens drive-mängd följer också wet
     this.saturation.distortion = 0.15 + sat * 0.75;
+
+    // Chorus rate + depth uppdateras live — Tone.Chorus tillåter ändring
+    // av frequency och depth utan att rebuild:a. delayTime är fast 3.5 ms.
+    this.chorus.frequency.value = chorusRate;
+    this.chorus.depth = chorusDepth;
 
     // Bitcrusher: bits 1–8 där 8 = nästan ren, 1 = total decimering. Mappa
     // wet 0–1 → bits 8 → 2 (1 låter för otäckt vid full mix).
