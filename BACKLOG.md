@@ -128,3 +128,4 @@ Hela 7-stegs-paketet är byggt och pushat:
 - ✅ Bitcrusher per spår (8→2 bit)
 - ✅ Per-spår filter cutoff + resonans baseline (LFO+filterLock modulerar runt)
 - ✅ Sidechain-duck (trigger-baserad pump, källa+amount+release per spår)
+- ✅ Virtuell pianoklaviatur (25/37/49/61 tangenter) med audition + skala-highlight
