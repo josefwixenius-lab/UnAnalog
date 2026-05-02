@@ -39,10 +39,34 @@ const BLACK_SEMITONES = [1, 3, 6, 8, 10];
 // För varje svart tangent: efter vilken vit-tangent (0–6) den ska ligga
 const BLACK_AFTER_WHITE = [0, 1, 3, 4, 5];
 
-const OCTAVES_VISIBLE = 2;
+/**
+ * Storleksval för klaviaturen. Standardiserade hardware-storlekar:
+ *  - 2 oktaver = 24 tangenter (mini-controller, kompakt)
+ *  - 3 oktaver = 36 tangenter (37-keys-stil)
+ *  - 4 oktaver = 48 tangenter (49-keys-stil, default)
+ *  - 5 oktaver = 60 tangenter (61-keys-stil)
+ * 88-tangenter (~7) får inte plats horisontellt utan scroll, så vi stannar
+ * vid 5. Tangenterna är flex:1 så hela bredden fylls oavsett antal oktaver.
+ */
+const SIZE_OPTIONS: { id: number; label: string; hint: string }[] = [
+  { id: 2, label: '25', hint: '2 oktaver — kompakt mini-controller' },
+  { id: 3, label: '37', hint: '3 oktaver — klassisk midi-controller' },
+  { id: 4, label: '49', hint: '4 oktaver — fyller en hel synthwave-loop' },
+  { id: 5, label: '61', hint: '5 oktaver — bas till lead på en gång' },
+];
+
+const DEFAULT_OCTAVES_VISIBLE = 4;
 
 export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
-  const [octave, setOctave] = useState(pattern.baseOctave);
+  // Default startoctav justerad nedåt om många oktaver visas så bas-tonerna
+  // syns från start (en 5-oktavers default på baseOctave skulle hamna högt
+  // upp och dölja basområdet).
+  const [octavesVisible, setOctavesVisible] = useState<number>(
+    DEFAULT_OCTAVES_VISIBLE,
+  );
+  const [octave, setOctave] = useState(() =>
+    Math.max(0, pattern.baseOctave - Math.floor(DEFAULT_OCTAVES_VISIBLE / 2)),
+  );
   const [mode, setMode] = useState<Mode>('sequence');
   const [buffer, setBuffer] = useState<number[]>([]);
   const synthRef = useRef<Tone.PolySynth | null>(null);
@@ -74,13 +98,13 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
 
   const intervals = SCALE_INTERVALS[pattern.scale];
 
-  // Räkna fram alla tangenter att rendera (2 oktaver), separerade i vita/svarta
-  // så vi kan absolut-positionera de svarta ovanpå de vita på rätt plats.
+  // Räkna fram alla tangenter att rendera, separerade i vita/svarta så vi
+  // kan absolut-positionera de svarta ovanpå de vita på rätt plats.
   const { whiteKeys, blackKeys } = useMemo(() => {
     const startMidi = (octave + 1) * 12; // C i startoktaven
     const whites: { midi: number; label: string; whiteIdx: number }[] = [];
     const blacks: { midi: number; label: string; afterWhiteIdx: number }[] = [];
-    for (let oct = 0; oct < OCTAVES_VISIBLE; oct++) {
+    for (let oct = 0; oct < octavesVisible; oct++) {
       for (let wi = 0; wi < WHITE_SEMITONES.length; wi++) {
         const midi = startMidi + oct * 12 + WHITE_SEMITONES[wi];
         whites.push({
@@ -96,7 +120,20 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
       }
     }
     return { whiteKeys: whites, blackKeys: blacks };
-  }, [octave]);
+  }, [octave, octavesVisible]);
+
+  /**
+   * Byt antal synliga oktaver. För att inte hamna ovanför MIDI-127 vid
+   * stora storlekar klampar vi octave-värdet — t.ex. 5 oktaver på octave=7
+   * skulle ligga utanför pianots område, så då sänks startoctav.
+   */
+  const changeSize = (next: number) => {
+    setOctavesVisible(next);
+    // Säkerställ att slut-tangenten ligger inom rimligt midi-område (≤127).
+    // Sista C är vid (octave + next) * 12 + 1 (B i sista oktaven). Vi vill
+    // inte gå över octave=8 totalt, så klampa nedåt.
+    setOctave((o) => Math.min(o, Math.max(0, 8 - next)));
+  };
 
   const isInScale = (midi: number) => {
     const rel = (((midi - pattern.rootNote) % 12) + 12) % 12;
@@ -161,6 +198,26 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
             ◉ Ackord
           </button>
         </div>
+        <div
+          className="segment"
+          role="tablist"
+          aria-label="Klaviaturens storlek"
+          title="Antal tangenter / oktaver synliga samtidigt."
+        >
+          <span className="segment__label">Storlek</span>
+          {SIZE_OPTIONS.map((s) => (
+            <button
+              key={s.id}
+              role="tab"
+              aria-selected={octavesVisible === s.id}
+              className={`segment__btn ${octavesVisible === s.id ? 'is-on' : ''}`}
+              onClick={() => changeSize(s.id)}
+              title={s.hint}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
         <div className="osk__octave" title="Flytta klaviaturen upp eller ner en oktav.">
           <span>Oktav</span>
           <button
@@ -172,12 +229,12 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
             −
           </button>
           <span className="osk__octave-val">
-            C{octave}–B{octave + OCTAVES_VISIBLE - 1}
+            C{octave}–B{octave + octavesVisible - 1}
           </span>
           <button
             className="tiny"
-            onClick={() => setOctave((o) => Math.min(7, o + 1))}
-            disabled={octave >= 7}
+            onClick={() => setOctave((o) => Math.min(8 - octavesVisible, o + 1))}
+            disabled={octave >= 8 - octavesVisible}
             aria-label="Oktav upp"
           >
             +
@@ -206,7 +263,11 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
           </button>
         ))}
         {blackKeys.map((k) => {
-          // Centrera svart tangent ovanför gränsen mellan whiteIdx och whiteIdx+1
+          // Centrera svart tangent ovanför gränsen mellan whiteIdx och whiteIdx+1.
+          // Bredd skalas med antalet vita tangenter — så svarta håller sig
+          // proportionerliga oavsett 25/37/49/61-storlek (60% av en vit-bredd).
+          const whiteWidthPct = 100 / totalWhite;
+          const blackWidthPct = whiteWidthPct * 0.6;
           const leftPct = ((k.afterWhiteIdx + 1) / totalWhite) * 100;
           return (
             <button
@@ -215,7 +276,10 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
               className={`osk__key osk__key--black ${
                 isInScale(k.midi) ? 'is-in-scale' : ''
               } ${buffer.includes(k.midi) ? 'is-pressed' : ''}`}
-              style={{ left: `calc(${leftPct}% - 14px)` }}
+              style={{
+                left: `${leftPct - blackWidthPct / 2}%`,
+                width: `${blackWidthPct}%`,
+              }}
               onClick={() => handleKeyClick(k.midi)}
               title={midiToName(k.midi)}
               aria-label={midiToName(k.midi)}

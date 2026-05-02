@@ -625,7 +625,12 @@ export function Manual({ open, onClose }: Props) {
                 pitch-stepet som ett ackord (motsvarar arp-riktning "stapla").</li>
               <li><strong>↺ Ångra</strong> tar bort senaste tonen, <strong>Rensa</strong>
                 tömmer bufferten utan att skicka något.</li>
-              <li><strong>Oktav −/+</strong> flyttar klaviaturen upp eller ner.</li>
+              <li><strong>Storlek 25 / 37 / 49 / 61</strong> — välj antal tangenter
+                som standardiserade hardware-controllers (default 49 = 4 oktaver).
+                Tangenterna fyller alltid panelens bredd, så fler tangenter =
+                smalare per styck.</li>
+              <li><strong>Oktav −/+</strong> flyttar fönstret upp eller ner. Visningen
+                visar t.ex. <code>C2–B5</code> så du vet vilket register du står i.</li>
             </ul>
             <TipBox>
               Tonerna i bufferten visas som t.ex. <code>C4 · E4 · G4 · B4</code> så du

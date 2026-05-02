@@ -884,11 +884,12 @@ body {
 }
 
 /* Pianolook: vita tangenter i flexrad, svarta absolutpositionerade ovanpå.
-   Höjd: 110 px = lagom storlek att klicka, ej för dominant i layouten. */
+   Höjd 130 px ger tillräckligt med klickyta även när klaviaturen är 5 okt
+   och vita tangenter är smala (~22 px på desktop). */
 .osk__keys {
   position: relative;
   display: flex;
-  height: 110px;
+  height: 130px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -918,8 +919,9 @@ body {
   margin: 0 1px;
   position: relative;
   z-index: 1;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
+  min-width: 18px;
 }
 .osk__key--white:hover {
   background: #e7e9f0;
@@ -945,12 +947,13 @@ body {
 .osk__key--black {
   position: absolute;
   top: 4px;
-  width: 28px;
-  height: 65%;
+  /* width sätts inline (skalas mot antal vita tangenter) */
+  height: 62%;
   background: #1a1d24;
   border: 1px solid #0a0c10;
   z-index: 2;
   color: #c5c8d0;
+  min-width: 14px;
 }
 .osk__key--black:hover {
   background: #2a2f3b;
