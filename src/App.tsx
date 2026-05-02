@@ -40,7 +40,7 @@ import {
 } from './engine/midi';
 import type { MidiIn, MidiOut } from './engine/midi';
 import * as Tone from 'tone';
-import type { Pattern, StyleName, Track, TrackFx, TrackLfo } from './engine/types';
+import type { MuteGroup, Pattern, StyleName, Track, TrackFx, TrackLfo } from './engine/types';
 import type { Bank, SlotId } from './engine/bank';
 import {
   clearSlot,
@@ -736,6 +736,29 @@ export default function App() {
     [setBank],
   );
 
+  // Mute-grupper. Toggle på/av per grupp; lagras i pattern.mutedGroups.
+  // Transient performance-control men sparas med pattern så slot-byte i
+  // song-mode kan ha olika scen-mute-tillstånd ("intro" vs "drop").
+  const onToggleMuteGroup = useCallback(
+    (group: MuteGroup) =>
+      updatePattern((p) => {
+        const cur = p.mutedGroups ?? [];
+        const next = cur.includes(group) ? cur.filter((g) => g !== group) : [...cur, group];
+        return { ...p, mutedGroups: next.length > 0 ? next : undefined };
+      }),
+    [updatePattern],
+  );
+
+  // Räkna spår per mute-grupp för att kunna disable:a tomma knappar i
+  // Transport ("Inga spår är taggade med C → ingen poäng att klicka C").
+  const trackCountPerGroup = useMemo<Record<MuteGroup, number>>(() => {
+    const counts: Record<MuteGroup, number> = { A: 0, B: 0, C: 0, D: 0 };
+    for (const t of pattern.tracks) {
+      if (t.muteGroup) counts[t.muteGroup] += 1;
+    }
+    return counts;
+  }, [pattern.tracks]);
+
   const onCopyPitch = useCallback(() => {
     const clip = copyActiveRow(pattern, 'pitch');
     if (clip) setClipboard(clip);
@@ -1022,6 +1045,9 @@ export default function App() {
           rolling={rolling}
           onRollDown={() => setRolling(true)}
           onRollUp={() => setRolling(false)}
+          mutedGroups={pattern.mutedGroups ?? []}
+          onToggleMuteGroup={onToggleMuteGroup}
+          trackCountPerGroup={trackCountPerGroup}
           clockSource={clockSource}
           onClockSourceChange={setClockSource}
           externalBpm={externalBpm}

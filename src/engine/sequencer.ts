@@ -352,7 +352,11 @@ export class Sequencer {
       if (!rt) continue;
       const gate = t.gateSteps[rt.gateIdx];
       const pitch = t.pitchSteps[rt.pitchIdx];
-      const trackAudible = t.enabled && (!anySolo || t.solo);
+      // Mute-grupp-check: om spåret är taggat med en grupp som ligger i
+      // pattern.mutedGroups, behandlas det som mute (samma effekt som M-knappen).
+      const inMutedGroup =
+        t.muteGroup != null && (p.mutedGroups?.includes(t.muteGroup) ?? false);
+      const trackAudible = t.enabled && !inMutedGroup && (!anySolo || t.solo);
       let fired = false;
 
       // Roll-läge: när rolling är på och DET HÄR spåret är aktivt, tving

@@ -1,4 +1,8 @@
+import type { MuteGroup } from '../engine/types';
+
 type ClockSource = 'internal' | 'external';
+
+const MUTE_GROUPS: MuteGroup[] = ['A', 'B', 'C', 'D'];
 
 type Props = {
   playing: boolean;
@@ -26,6 +30,14 @@ type Props = {
   rolling: boolean;
   onRollDown: () => void;
   onRollUp: () => void;
+  /**
+   * Mute-grupper för live-arrangemang. Klick togglar grupp på/av — alla
+   * spår som är taggade med den gruppen tystas (eller släpps på).
+   */
+  mutedGroups: MuteGroup[];
+  onToggleMuteGroup: (group: MuteGroup) => void;
+  /** Antal spår per grupp för UI-feedback (visar ej grupp-knapp om 0 spår). */
+  trackCountPerGroup: Record<MuteGroup, number>;
   clockSource: ClockSource;
   onClockSourceChange: (src: ClockSource) => void;
   externalBpm: number | null;
@@ -60,6 +72,9 @@ export function Transport({
   rolling,
   onRollDown,
   onRollUp,
+  mutedGroups,
+  onToggleMuteGroup,
+  trackCountPerGroup,
   clockSource,
   onClockSourceChange,
   externalBpm,
@@ -224,6 +239,36 @@ export function Transport({
       >
         FILL
       </button>
+
+      <div
+        className="mute-groups"
+        role="group"
+        aria-label="Mute-grupper för live-arrangemang"
+        title="Tysta-toggla en hel grupp av spår. Tagga spår i TrackStrip → grp."
+      >
+        <span className="segment__label">Mute</span>
+        {MUTE_GROUPS.map((g) => {
+          const count = trackCountPerGroup[g] ?? 0;
+          const isOn = mutedGroups.includes(g);
+          return (
+            <button
+              key={g}
+              className={`btn btn--mg ${isOn ? 'is-on' : ''}`}
+              onClick={() => onToggleMuteGroup(g)}
+              disabled={count === 0}
+              title={
+                count === 0
+                  ? `Inga spår är taggade med grupp ${g}`
+                  : isOn
+                    ? `Släpp grupp ${g} (${count} spår tystas just nu)`
+                    : `Tysta grupp ${g} (${count} spår)`
+              }
+            >
+              {g}
+            </button>
+          );
+        })}
+      </div>
 
       {!isExternal && (
         <label

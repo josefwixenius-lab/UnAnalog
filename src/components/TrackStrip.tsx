@@ -1,4 +1,4 @@
-import type { Pattern, PlayDirection, Track, VoiceKind } from '../engine/types';
+import type { MuteGroup, Pattern, PlayDirection, Track, VoiceKind } from '../engine/types';
 import type { MidiOut } from '../engine/midi';
 import { VOICE_LABELS } from '../engine/voices';
 
@@ -178,6 +178,27 @@ export function TrackStrip({
                     {o.name}
                   </option>
                 ))}
+              </select>
+            </label>
+            <label
+              className="trackstrip__mg"
+              title="Mute-grupp. När gruppen är aktiv i Transport (A/B/C/D-knapparna) tystas detta spår med hela gruppen. Bra för live-arrangemang."
+            >
+              <span>grp</span>
+              <select
+                value={t.muteGroup ?? ''}
+                onChange={(e) =>
+                  onChangeTrack(t.id, {
+                    muteGroup: (e.target.value || undefined) as MuteGroup | undefined,
+                  })
+                }
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="">—</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
               </select>
             </label>
             <button

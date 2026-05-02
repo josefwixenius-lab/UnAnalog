@@ -54,6 +54,14 @@ export type GateStep = {
 export type VoiceKind = 'bass' | 'lead' | 'hats' | 'pad' | 'saw';
 
 /**
+ * Mute-grupper för live-arrangemang. Spår kan taggas med A/B/C/D, och
+ * Transport har fyra toggle-knappar som tystar alla spår i en grupp på
+ * en knapptryckning. Klassiskt scene-arrangemangsverktyg: "i bryggan
+ * tystar jag percgruppen", "i refrängen släpper jag på alla igen".
+ */
+export type MuteGroup = 'A' | 'B' | 'C' | 'D';
+
+/**
  * Spel-riktning per spår — inspirerat av Korg SQ-10 / Behringer BQ-10
  * Mode A/B/C-väljaren. Att kunna köra ett spår baklänges eller ping-pong
  * mot ett annat ger massiv variation utan att man rör en enda step.
@@ -155,6 +163,12 @@ export type Track = {
    */
   pan?: number;
   /**
+   * Mute-grupp-tagg. Om satt påverkas spåret av Transport-knapparna A/B/C/D.
+   * Saknat = ingen grupp (spåret tystas aldrig av mute-grupper, bara av
+   * vanliga M-knappen / solo-läget).
+   */
+  muteGroup?: MuteGroup;
+  /**
    * Filter cutoff baseline 0–1. Mappar logaritmiskt till 80 Hz–16 kHz.
    * Om satt skriver det över voice-defaulten (bass=1.6k, lead=3.8k, etc).
    * `filterLock` per step modulerar fortfarande RUNT denna baseline.
@@ -205,6 +219,13 @@ export type Pattern = {
   tracks: Track[];
   activeTrackId: string;
   fillActive: boolean;
+  /**
+   * Vilka mute-grupper som är aktiva (= tystade) just nu. Sparas per
+   * pattern så slot-byten kan ha olika scen-mute-tillstånd, vilket är
+   * användbart i song-mode (slot A "intro" vs slot B "drop").
+   * Saknat eller [] = inga grupper tystade.
+   */
+  mutedGroups?: MuteGroup[];
 };
 
 export type StyleName = 'ambient' | 'acid' | 'berlin' | 'idm' | 'chillout' | 'synthwave' | 'outrun';

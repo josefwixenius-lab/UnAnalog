@@ -239,6 +239,35 @@ body {
   50% { box-shadow: 0 0 0 6px rgba(224, 70, 94, 0); }
 }
 
+/* --- Mute-grupper (A/B/C/D toggle för live-arrangemang) -------------- */
+.mute-groups {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-cell);
+}
+.btn--mg {
+  min-width: 28px;
+  padding: 4px 8px;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.btn--mg.is-on {
+  background: #e0465e;
+  color: #fff;
+  border-color: #e0465e;
+  /* Subtil pulse för att markera "denna grupp är tystad NU" */
+  box-shadow: 0 0 0 1px rgba(224, 70, 94, 0.35);
+}
+.btn--mg[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 /* --- Roll-knapp (håll-att-rulla, 1/64 på aktivt spår) ----------------- */
 .btn--roll {
   min-width: 76px;
@@ -511,6 +540,25 @@ body {
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Mute-grupp-tagg per spår */
+.trackstrip__mg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.trackstrip__mg select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 36px;
 }
 
 /* Spel-riktning per spår — SQ-10/BQ-10-stil */
