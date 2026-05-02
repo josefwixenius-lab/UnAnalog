@@ -20,7 +20,7 @@ const SECTIONS: Section[] = [
   { id: 'tools', title: '9. Verktyg: längder, filter, sidechain, LFO, FX-djup' },
   { id: 'quick', title: '10. Snabbåtgärder & copy/paste av rader' },
   { id: 'styles', title: '11. Stilpresets + 🎲 Slumpa nytt pattern' },
-  { id: 'chord', title: '12. Ackord-input, sekvensinspelning & loop-rec' },
+  { id: 'chord', title: '12. Inmatning: klaviatur, ackord, sekvens, loop-rec' },
   { id: 'midi-import', title: '13. MIDI-import' },
   { id: 'bank', title: '14. Pattern bank: spara, ladda, exportera' },
   { id: 'song', title: '15. Song chain — kedja patterns' },
@@ -601,10 +601,45 @@ export function Manual({ open, onClose }: Props) {
 
           {/* === 12. CHORD === */}
           <section id="man-chord">
-            <h2>12. Ackord-input, sekvensinspelning & loop-rec</h2>
-            <p>Det finns tre sätt att mata in toner från ett MIDI-keyboard:</p>
+            <h2>12. Inmatning: klaviatur, ackord, sekvens, loop-rec</h2>
+            <p>
+              Fyra olika sätt att fylla aktiva spårets pitch-rad — välj det som passar
+              just nu beroende på om du har MIDI-hårdvara framme, jammar eller bara
+              vill skissa snabbt med musen.
+            </p>
 
-            <h3>A) Spela ackord (alla toner samtidigt)</h3>
+            <h3>🎹 Virtuell klaviatur (mata in med musen — ingen MIDI-hårdvara behövs)</h3>
+            <p>
+              I panel-sektionen ligger en pianoklaviatur med två oktaver. Toner i
+              aktuell skala highlightas i grönt så du ser vilka som passar. När du
+              klickar en tangent hör du den direkt (intern audition-synth) — det är
+              inte spårets voice utan en separat triangelvåg så du har konsekvent
+              referensljud även medan playback pågår.
+            </p>
+            <ul>
+              <li><strong>🎵 Ton för ton</strong> — varje klick lägger en ton i bufferten.
+                Ordningen bevaras, dubbletter räknas. Klicka <kbd>✓ Mata in</kbd> →
+                hela sekvensen fyller aktiva spårets pitch-rad.</li>
+              <li><strong>◉ Ackord</strong> — varje klick lägger till en ton (samma
+                ton dubbleras inte). <kbd>✓ Mata in</kbd> stackar alla på första
+                pitch-stepet som ett ackord (motsvarar arp-riktning "stapla").</li>
+              <li><strong>↺ Ångra</strong> tar bort senaste tonen, <strong>Rensa</strong>
+                tömmer bufferten utan att skicka något.</li>
+              <li><strong>Oktav −/+</strong> flyttar klaviaturen upp eller ner.</li>
+            </ul>
+            <TipBox>
+              Tonerna i bufferten visas som t.ex. <code>C4 · E4 · G4 · B4</code> så du
+              ser exakt vad som matas in. Klicka direkt på en ny tangent fortsätter
+              bygga; ångrar du inte aktivt, samlas tonerna ihop tills du committar.
+            </TipBox>
+            <Example>
+              Skissa en synthwave-arp på 30 sekunder: välj <strong>🎵 Ton för ton</strong>,
+              klicka A3 · E4 · A4 · E4 · A3 · E4 · A4 · C5. Tryck ✓ → åtta steg klara.
+              Sätt voice till <em>Bass</em> eller välj 🌆 Synthwave-presetet på spåret
+              för att blanda in oktav-hopp.
+            </Example>
+
+            <h3>A) Spela ackord (alla toner samtidigt — kräver MIDI-keyboard)</h3>
             <ol>
               <li>Välj en arp-riktning (upp, ner, slump, fram &amp; tillbaka, ping-pong, stapla).</li>
               <li>Klicka <kbd>◉ Spela ackord</kbd>.</li>

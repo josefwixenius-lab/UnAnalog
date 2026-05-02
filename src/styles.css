@@ -833,6 +833,186 @@ body {
   align-items: stretch;
 }
 
+/* === Virtuell klaviatur (OnScreenKeyboard) ============================== */
+
+.panel--keyboard {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.osk {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.osk__header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.osk__header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.osk__hint {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.osk__controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.osk__octave {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.osk__octave-val {
+  min-width: 56px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* Pianolook: vita tangenter i flexrad, svarta absolutpositionerade ovanpå.
+   Höjd: 110 px = lagom storlek att klicka, ej för dominant i layouten. */
+.osk__keys {
+  position: relative;
+  display: flex;
+  height: 110px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  user-select: none;
+}
+
+.osk__key {
+  cursor: pointer;
+  border-radius: 0 0 4px 4px;
+  transition: background 0.05s ease, transform 0.05s ease;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 6px;
+  font-family: inherit;
+}
+.osk__key:active {
+  transform: translateY(1px);
+}
+
+.osk__key--white {
+  flex: 1;
+  background: #f4f4f5;
+  border: 1px solid #c5c8d0;
+  color: #20232a;
+  margin: 0 1px;
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  font-weight: 600;
+}
+.osk__key--white:hover {
+  background: #e7e9f0;
+}
+.osk__key--white.is-in-scale {
+  background: linear-gradient(180deg, #f4f4f5 0%, #d8f5e6 100%);
+  border-color: #7ee7c1;
+}
+.osk__key--white.is-in-scale:hover {
+  background: linear-gradient(180deg, #eaf7ee 0%, #b5ecd0 100%);
+}
+.osk__key--white.is-pressed,
+.osk__key--white.is-pressed:hover {
+  background: #f7c873;
+  border-color: #e2a23a;
+  color: #2a1e08;
+}
+.osk__key-label {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.osk__key--black {
+  position: absolute;
+  top: 4px;
+  width: 28px;
+  height: 65%;
+  background: #1a1d24;
+  border: 1px solid #0a0c10;
+  z-index: 2;
+  color: #c5c8d0;
+}
+.osk__key--black:hover {
+  background: #2a2f3b;
+}
+.osk__key--black.is-in-scale {
+  background: linear-gradient(180deg, #1a1d24 0%, #2a4a3e 100%);
+  border-color: #4a8a6e;
+}
+.osk__key--black.is-in-scale:hover {
+  background: linear-gradient(180deg, #2a2f3b 0%, #3a5a4e 100%);
+}
+.osk__key--black.is-pressed,
+.osk__key--black.is-pressed:hover {
+  background: #f7c873;
+  border-color: #e2a23a;
+}
+
+.osk__buffer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.osk__buffer-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.osk__buffer-notes {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--text);
+  flex: 1;
+  min-width: 120px;
+}
+.osk__buffer-notes em {
+  color: var(--text-dim);
+  font-style: italic;
+}
+.osk__buffer-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.chip--primary {
+  background: var(--accent);
+  color: #0b0d12;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.chip--primary:hover:not([disabled]) {
+  filter: brightness(1.1);
+}
+.chip--primary[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .chord {
   display: flex;
   flex-direction: column;

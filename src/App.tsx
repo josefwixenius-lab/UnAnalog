@@ -64,6 +64,7 @@ import { TrackStrip } from './components/TrackStrip';
 import { PatternBank, type SyncMode } from './components/PatternBank';
 import { SongChain } from './components/SongChain';
 import { ChordInput } from './components/ChordInput';
+import { OnScreenKeyboard } from './components/OnScreenKeyboard';
 import { MidiImport } from './components/MidiImport';
 import { Manual } from './components/Manual';
 import { QuickActions } from './components/QuickActions';
@@ -1065,6 +1066,14 @@ export default function App() {
         <section className="panel panel--chord">
           <ChordInput activeTrackName={activeTrack.name} onChord={onChord} />
           <MidiImport activeTrackName={activeTrack.name} onImport={onMidiImport} />
+        </section>
+
+        <section className="panel panel--keyboard">
+          <OnScreenKeyboard
+            pattern={pattern}
+            activeTrackName={activeTrack.name}
+            onChord={onChord}
+          />
         </section>
 
         <section className="panel panel--tools">
