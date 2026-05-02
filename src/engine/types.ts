@@ -81,15 +81,53 @@ export type TrackLfo = {
 };
 
 /**
- * Per-spår FX-send. Varje värde är 0–1 (0 = torr, 1 = full effekt).
- * - `delay`: ping-pong, sync:ad 8n
- * - `reverb`: stor hall
- * - `saturation`: mjuk drive / tape
+ * Delay-tid: musikalisk subdivision. 8n = åttondel, 8n. = punkterad åttondel,
+ * 8t = åttondelstriol osv. Default `8n` (klassisk synthwave-delay).
+ */
+export type DelaySubdivision = '4n' | '8n' | '8n.' | '8t' | '16n' | '16n.' | '16t' | '32n';
+
+/**
+ * Delay-läge:
+ * - `pingpong` : klassisk stereo ping-pong (default)
+ * - `mono`     : enkel mono-feedback-delay (Roland Space Echo-känsla)
+ * - `tape`     : pitch-svaj via LFO på delayTime — vintage tape-machine-vibration
+ */
+export type DelayMode = 'pingpong' | 'mono' | 'tape';
+
+/**
+ * Per-spår FX-mix. Värden 0–1 där annat ej anges.
+ *
+ * Bakåtkompat: `delay` (legacy) tolkas som `delayMix` om det fältet saknas;
+ * `reverb` (legacy) tolkas som `reverbLong` om det saknas. Alla nya fält
+ * är valfria så gamla sparade banker laddas oförändrat.
  */
 export type TrackFx = {
+  // --- Legacy + bakåtkompat ---
   delay: number;
   reverb: number;
   saturation: number;
+
+  // --- Delay (per-spår-instans, så feedback + tid + mode kan variera) ---
+  /** Wet-mix mot delay-bussen. Default = legacy `delay`. */
+  delayMix?: number;
+  /** Tid: musikalisk subdivision. Default `8n`. */
+  delayTime?: DelaySubdivision;
+  /** Feedback-mängd 0–0.95. Default 0.35. Över 0.95 = self-oscillation, undvik. */
+  delayFeedback?: number;
+  /** Läge: pingpong (default), mono, tape (pitch-svaj). */
+  delayMode?: DelayMode;
+
+  // --- Reverb (två globala instanser med sends per spår) ---
+  /** Send till kort reverb (~1.2 s decay) — för intimitet, snare-rooms, lead-färg. */
+  reverbShort?: number;
+  /** Send till lång reverb (~6.5 s decay) — för synthwave-pad-svans, lead-bakgrund. Default = legacy `reverb`. */
+  reverbLong?: number;
+
+  // --- Modulation + krasch ---
+  /** Chorus-wet 0–1. Per-spår-instans. Default 0. */
+  chorus?: number;
+  /** Bitcrusher-wet 0–1. Per-spår-instans. Default 0. */
+  bitcrusher?: number;
 };
 
 export type Track = {

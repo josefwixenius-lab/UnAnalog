@@ -611,14 +611,15 @@ export default function App() {
   const onChangeFx = useCallback(
     (patch: Partial<TrackFx>) =>
       updatePattern((p) =>
-        updateActiveTrack(p, (t) => ({
-          ...t,
-          fx: {
-            delay: patch.delay ?? t.fx?.delay ?? 0,
-            reverb: patch.reverb ?? t.fx?.reverb ?? 0,
-            saturation: patch.saturation ?? t.fx?.saturation ?? 0,
-          },
-        })),
+        updateActiveTrack(p, (t) => {
+          // Defaults först (för äldre sparade tracks som saknar fx-objektet),
+          // sen befintliga fält, sen patchen så ALLA nya optionella fält
+          // (delayMix, delayTime, delayMode, reverbShort, reverbLong, chorus,
+          // bitcrusher) propageras till state.
+          const base: TrackFx = { delay: 0, reverb: 0, saturation: 0 };
+          const merged: TrackFx = { ...base, ...(t.fx ?? {}), ...patch };
+          return { ...t, fx: merged };
+        }),
       ),
     [updatePattern],
   );

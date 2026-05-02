@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type {
+  DelayMode,
+  DelaySubdivision,
   LfoRate,
   LfoShape,
   LfoTarget,
@@ -7,6 +9,23 @@ import type {
   TrackLfo,
   VoiceKind,
 } from '../engine/types';
+
+const DELAY_TIME_OPTIONS: { id: DelaySubdivision; label: string }[] = [
+  { id: '4n', label: '1/4' },
+  { id: '8n.', label: '1/8.' },
+  { id: '8n', label: '1/8' },
+  { id: '8t', label: '1/8T' },
+  { id: '16n.', label: '1/16.' },
+  { id: '16n', label: '1/16' },
+  { id: '16t', label: '1/16T' },
+  { id: '32n', label: '1/32' },
+];
+
+const DELAY_MODE_OPTIONS: { id: DelayMode; label: string; hint: string }[] = [
+  { id: 'pingpong', label: 'Ping-pong', hint: 'Klassisk stereo ping-pong' },
+  { id: 'mono', label: 'Mono', hint: 'Enkel mono-feedback (Space Echo-känsla)' },
+  { id: 'tape', label: 'Tape', hint: 'Pitch-svaj via LFO på delaytid — vintage tape-vibration' },
+];
 
 type Props = {
   activeTrackName: string;
@@ -266,50 +285,181 @@ export function Tools({
         </small>
       </div>
 
-      <div className="field-row field-row--fx">
-        <span className="group__label">Effekter</span>
-        <label className="field" title="Ping-pong-delay synkad till 1/8. Ger rum och rörelse.">
-          <span>Delay {Math.round(fx.delay * 100)}%</span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.02}
-            value={fx.delay}
-            onChange={(e) => onChangeFx({ delay: Number(e.target.value) })}
-          />
-        </label>
-        <label className="field" title="Stor hall. Mjukar ljudet och sätter det i ett rum. Mycket reverb på tajta bas-spår blir lätt plottrigt.">
-          <span>Reverb {Math.round(fx.reverb * 100)}%</span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.02}
-            value={fx.reverb}
-            onChange={(e) => onChangeFx({ reverb: Number(e.target.value) })}
-          />
-        </label>
-        <label className="field" title="Tape/drive-liknande mättnad. Ger analog varm energi; lyft på hats & bass.">
-          <span>Saturation {Math.round(fx.saturation * 100)}%</span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.02}
-            value={fx.saturation}
-            onChange={(e) => onChangeFx({ saturation: Number(e.target.value) })}
-          />
-        </label>
-        <button
-          className="chip chip--reset"
-          onClick={() => onChangeFx({ delay: 0, reverb: 0, saturation: 0 })}
-          disabled={fx.delay === 0 && fx.reverb === 0 && fx.saturation === 0}
-          title="Nollställ alla effekter för detta spår"
-        >
-          ↺ Torrt
-        </button>
-      </div>
+      {(() => {
+        // Bakåtkompat: gamla sparade fx-objekt har bara delay/reverb/saturation.
+        // Nya optionella fält faller tillbaka på legacy-värden eller defaults.
+        const delayMix = fx.delayMix ?? fx.delay;
+        const delayTime: DelaySubdivision = fx.delayTime ?? '8n';
+        const delayFb = fx.delayFeedback ?? 0.35;
+        const delayMode: DelayMode = fx.delayMode ?? 'pingpong';
+        const reverbShort = fx.reverbShort ?? 0;
+        const reverbLong = fx.reverbLong ?? fx.reverb;
+        const chorus = fx.chorus ?? 0;
+        const crusher = fx.bitcrusher ?? 0;
+        const allDry =
+          delayMix === 0 &&
+          reverbShort === 0 &&
+          reverbLong === 0 &&
+          fx.saturation === 0 &&
+          chorus === 0 &&
+          crusher === 0;
+        return (
+          <>
+            {/* === Delay-grupp === */}
+            <div className="field-row field-row--fx">
+              <span className="group__label">Delay</span>
+              <label className="field" title="Wet-mix mot delay-bussen.">
+                <span>Mix {Math.round(delayMix * 100)}%</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.02}
+                  value={delayMix}
+                  onChange={(e) => onChangeFx({ delayMix: Number(e.target.value) })}
+                />
+              </label>
+              <label className="field" title="Tid (musikalisk subdivision). 1/8. = punkterad åttondel, 1/8T = triol.">
+                <span>Tid</span>
+                <select
+                  value={delayTime}
+                  onChange={(e) =>
+                    onChangeFx({ delayTime: e.target.value as DelaySubdivision })
+                  }
+                >
+                  {DELAY_TIME_OPTIONS.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label
+                className="field"
+                title="Feedback. Över 80% går mot self-oscillation — håll kvar runt 30–60% för synthwave."
+              >
+                <span>FB {Math.round(delayFb * 100)}%</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={0.95}
+                  step={0.02}
+                  value={delayFb}
+                  onChange={(e) => onChangeFx({ delayFeedback: Number(e.target.value) })}
+                />
+              </label>
+              <label
+                className="field"
+                title={DELAY_MODE_OPTIONS.find((m) => m.id === delayMode)?.hint ?? ''}
+              >
+                <span>Mode</span>
+                <select
+                  value={delayMode}
+                  onChange={(e) =>
+                    onChangeFx({ delayMode: e.target.value as DelayMode })
+                  }
+                >
+                  {DELAY_MODE_OPTIONS.map((m) => (
+                    <option key={m.id} value={m.id} title={m.hint}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {/* === Reverb-grupp === */}
+            <div className="field-row field-row--fx">
+              <span className="group__label">Reverb</span>
+              <label className="field" title="Send till kort reverb (~1.2 s). Bra för leads och plate-känsla.">
+                <span>Short {Math.round(reverbShort * 100)}%</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.02}
+                  value={reverbShort}
+                  onChange={(e) => onChangeFx({ reverbShort: Number(e.target.value) })}
+                />
+              </label>
+              <label className="field" title="Send till lång reverb (~6.5 s). Synthwave-pad-svans, FM-84-territory.">
+                <span>Long {Math.round(reverbLong * 100)}%</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.02}
+                  value={reverbLong}
+                  onChange={(e) => onChangeFx({ reverbLong: Number(e.target.value) })}
+                />
+              </label>
+            </div>
+
+            {/* === Karaktär-grupp: saturation + chorus + bitcrusher === */}
+            <div className="field-row field-row--fx">
+              <span className="group__label">Karaktär</span>
+              <label className="field" title="Tape/drive-liknande mättnad. Ger analog varm energi; lyft på hats & bass.">
+                <span>Saturation {Math.round(fx.saturation * 100)}%</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.02}
+                  value={fx.saturation}
+                  onChange={(e) => onChangeFx({ saturation: Number(e.target.value) })}
+                />
+              </label>
+              <label
+                className="field"
+                title="Stereo-chorus (sin 1.5 Hz, depth 0.7). Tjockar leads och pad i bredden."
+              >
+                <span>Chorus {Math.round(chorus * 100)}%</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.02}
+                  value={chorus}
+                  onChange={(e) => onChangeFx({ chorus: Number(e.target.value) })}
+                />
+              </label>
+              <label
+                className="field"
+                title="Bitcrusher: 8-bit ner mot 2-bit. Glitch/lo-fi-färg på hats och perc."
+              >
+                <span>Crush {Math.round(crusher * 100)}%</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.02}
+                  value={crusher}
+                  onChange={(e) => onChangeFx({ bitcrusher: Number(e.target.value) })}
+                />
+              </label>
+              <button
+                className="chip chip--reset"
+                onClick={() =>
+                  onChangeFx({
+                    delay: 0,
+                    delayMix: 0,
+                    reverb: 0,
+                    reverbShort: 0,
+                    reverbLong: 0,
+                    saturation: 0,
+                    chorus: 0,
+                    bitcrusher: 0,
+                  })
+                }
+                disabled={allDry}
+                title="Nollställ alla effekter för detta spår"
+              >
+                ↺ Torrt
+              </button>
+            </div>
+          </>
+        );
+      })()}
 
       <div className="field-row field-row--humanize">
         <span className="group__label">Humanize nudge</span>
