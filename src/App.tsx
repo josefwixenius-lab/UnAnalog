@@ -644,6 +644,32 @@ export default function App() {
     [updatePattern],
   );
 
+  // Sidechain — sätter sourceId/amount/release på aktivt spår. `null` på
+  // sourceId = "av" (sätter undefined så engine ignorerar duck).
+  const onChangeSidechain = useCallback(
+    (patch: {
+      sidechainSourceId?: string | null;
+      sidechainAmount?: number;
+      sidechainRelease?: number;
+    }) =>
+      updatePattern((p) =>
+        updateActiveTrack(p, (t) => {
+          const next = { ...t };
+          if ('sidechainSourceId' in patch) {
+            next.sidechainSourceId = patch.sidechainSourceId ?? undefined;
+          }
+          if ('sidechainAmount' in patch) {
+            next.sidechainAmount = patch.sidechainAmount;
+          }
+          if ('sidechainRelease' in patch) {
+            next.sidechainRelease = patch.sidechainRelease;
+          }
+          return next;
+        }),
+      ),
+    [updatePattern],
+  );
+
   const onMasterDbChange = useCallback(
     (v: number) => setBank((b) => ({ ...b, masterDb: v })),
     [setBank],
@@ -1056,6 +1082,13 @@ export default function App() {
             filterCutoff={activeTrack.filterCutoff}
             filterResonance={activeTrack.filterResonance}
             onChangeFilter={onChangeFilter}
+            sidechainSources={pattern.tracks
+              .filter((tt) => tt.id !== activeTrack.id)
+              .map((tt) => ({ id: tt.id, name: tt.name }))}
+            sidechainSourceId={activeTrack.sidechainSourceId}
+            sidechainAmount={activeTrack.sidechainAmount}
+            sidechainRelease={activeTrack.sidechainRelease}
+            onChangeSidechain={onChangeSidechain}
             onResize={onResize}
             onMutate={onMutate}
             onRandomizePitch={onRandomizePitch}

@@ -183,6 +183,12 @@ class DelayUnit {
  */
 export class TrackFxChain {
   private input: Tone.Gain;
+  /**
+   * Duck-gain för sidechain. Sitter mellan input och panner så hela
+   * signalen (dry + alla sends) dippas i takt. Default 1.0 (ingen duck).
+   * Pump-envelopen schedulas via applyDuck() från sequencer.tick.
+   */
+  private duckGain: Tone.Gain;
   private panner: Tone.Panner;
   private drySend: Tone.Gain;
   // Delay
@@ -205,6 +211,7 @@ export class TrackFxChain {
   constructor(initial: TrackFx) {
     ensureInit();
     this.input = new Tone.Gain(1);
+    this.duckGain = new Tone.Gain(1);
     this.panner = new Tone.Panner(0);
     this.drySend = new Tone.Gain(1);
 
@@ -231,8 +238,11 @@ export class TrackFxChain {
     this.crusherSend = new Tone.Gain(0);
     this.crusher = new Tone.BitCrusher(8);
 
-    // input → panner → fanout
-    this.input.connect(this.panner);
+    // input → duck → panner → fanout. Duck:en sitter FÖRST så pumpen
+    // påverkar både dry och alla sends — annars skulle reverb-svansen
+    // fortsätta otrampad medan dry pumpar, vilket låter konstigt.
+    this.input.connect(this.duckGain);
+    this.duckGain.connect(this.panner);
     this.panner.connect(this.drySend);
     this.panner.connect(this.delaySend);
     this.panner.connect(this.reverbShortSend);
@@ -265,6 +275,35 @@ export class TrackFxChain {
     if (this.disposed) return;
     const p = Math.max(-1, Math.min(1, pan));
     this.panner.pan.value = p;
+  }
+
+  /**
+   * Schedulera en duck-puls: snabb attack ner till (1 - amount), sedan
+   * linjär ramp tillbaka till 1 över `release` sekunder.
+   *
+   * Anropas från sequencer varje gång ett trigger-spår firar och detta
+   * spår är konfigurerat med `sidechainSourceId === triggerTrack.id`.
+   *
+   * Tajming: vi använder Tone.Param-API:et som schedulerar i Tone-kontextens
+   * tid (sample-accurate). En kort attack (~5 ms) gör att pumpen är
+   * känbar utan att klicka.
+   */
+  applyDuck(timeSec: number, amount: number, releaseSec: number) {
+    if (this.disposed) return;
+    const amt = Math.max(0, Math.min(1, amount));
+    if (amt <= 0) return;
+    const attack = 0.005;
+    const release = Math.max(0.02, Math.min(2, releaseSec));
+    const dipped = 1 - amt;
+    const g = this.duckGain.gain;
+    // cancelAndHoldAtTime ger ett rent omstart-läge utan klick — om Tone-
+    // versionen inte har den, faller vi tillbaka till cancelScheduledValues.
+    const cAndH = (g as unknown as { cancelAndHoldAtTime?: (t: number) => void })
+      .cancelAndHoldAtTime;
+    if (typeof cAndH === 'function') cAndH.call(g, timeSec);
+    else g.cancelScheduledValues(timeSec);
+    g.linearRampToValueAtTime(dipped, timeSec + attack);
+    g.linearRampToValueAtTime(1, timeSec + attack + release);
   }
 
   /** Voice.connect(chain.getInput()) */
@@ -313,6 +352,7 @@ export class TrackFxChain {
     if (this.disposed) return;
     this.disposed = true;
     this.input.disconnect();
+    this.duckGain.disconnect();
     this.panner.disconnect();
     this.drySend.disconnect();
     this.delaySend.disconnect();
@@ -337,5 +377,6 @@ export class TrackFxChain {
     this.crusherSend.dispose();
     this.crusher.dispose();
     this.delayUnit.dispose();
+    this.duckGain.dispose();
   }
 }

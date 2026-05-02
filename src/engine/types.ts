@@ -167,6 +167,23 @@ export type Track = {
    * acid-bas och classic synthwave-leads.
    */
   filterResonance?: number;
+  /**
+   * Sidechain-duck: id på det spår vars triggers ska "pumpa" detta spår.
+   * Klassiskt synthwave-trick — bass-spåret pumpar pad-spåret så det
+   * kvittrar i takt med basen. Saknat = ingen duck.
+   */
+  sidechainSourceId?: string;
+  /**
+   * Hur djupt detta spår dippas vid varje trigger på source-spåret.
+   * 0–1 där 0 = ingen pump, 1 = total tystnad i transient-attacken.
+   * Default 0. Typisk synthwave: 0.4–0.7.
+   */
+  sidechainAmount?: number;
+  /**
+   * Release-tid efter pumpen (sekunder). 0.05–0.5. Default 0.18.
+   * Kortare = mer aggressiv pump, längre = breath/svaj-känsla.
+   */
+  sidechainRelease?: number;
   color: string;
   voice: VoiceKind;
   volumeDb: number;

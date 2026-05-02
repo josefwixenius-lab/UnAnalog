@@ -10,6 +10,11 @@ import type {
   VoiceKind,
 } from '../engine/types';
 
+type SidechainSource = {
+  id: string;
+  name: string;
+};
+
 const DELAY_TIME_OPTIONS: { id: DelaySubdivision; label: string }[] = [
   { id: '4n', label: '1/4' },
   { id: '8n.', label: '1/8.' },
@@ -40,6 +45,16 @@ type Props = {
   filterCutoff: number | undefined;
   filterResonance: number | undefined;
   onChangeFilter: (patch: { filterCutoff?: number | null; filterResonance?: number | null }) => void;
+  /** Lista över andra spår som kan vara sidechain-källor. */
+  sidechainSources: SidechainSource[];
+  sidechainSourceId: string | undefined;
+  sidechainAmount: number | undefined;
+  sidechainRelease: number | undefined;
+  onChangeSidechain: (patch: {
+    sidechainSourceId?: string | null;
+    sidechainAmount?: number;
+    sidechainRelease?: number;
+  }) => void;
   onResize: (pitchLen: number, gateLen: number) => void;
   onMutate: () => void;
   onRandomizePitch: () => void;
@@ -70,6 +85,11 @@ export function Tools({
   filterCutoff,
   filterResonance,
   onChangeFilter,
+  sidechainSources,
+  sidechainSourceId,
+  sidechainAmount,
+  sidechainRelease,
+  onChangeSidechain,
   onResize,
   onMutate,
   onRandomizePitch,
@@ -268,6 +288,65 @@ export function Tools({
         >
           ↺ Default
         </button>
+      </div>
+
+      <div className="field-row field-row--sidechain">
+        <span className="group__label">Sidechain</span>
+        <label
+          className="field"
+          title="Källa: vilket spår triggar pumpen? Klassiskt: bass-spåret pumpar pad/lead. Ingen = av."
+        >
+          <span>Källa</span>
+          <select
+            value={sidechainSourceId ?? ''}
+            onChange={(e) =>
+              onChangeSidechain({ sidechainSourceId: e.target.value || null })
+            }
+          >
+            <option value="">— ingen —</option>
+            {sidechainSources.map((s) => (
+              <option key={s.id} value={s.id}>
+                ↘ {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label
+          className="field"
+          title="Hur djupt detta spår dippas vid varje trigger på källan. 40–70% = klassisk synthwave-pump, 100% = total tystnad i transienten."
+        >
+          <span>Pump {Math.round((sidechainAmount ?? 0) * 100)}%</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.02}
+            value={sidechainAmount ?? 0}
+            onChange={(e) =>
+              onChangeSidechain({ sidechainAmount: Number(e.target.value) })
+            }
+            disabled={!sidechainSourceId}
+          />
+        </label>
+        <label
+          className="field"
+          title="Release-tid: hur länge pumpen håller i sig. Kort (50–100 ms) = snärtigt, långt (300+ ms) = breath/svaj."
+        >
+          <span>
+            Release {Math.round((sidechainRelease ?? 0.18) * 1000)} ms
+          </span>
+          <input
+            type="range"
+            min={0.05}
+            max={0.5}
+            step={0.01}
+            value={sidechainRelease ?? 0.18}
+            onChange={(e) =>
+              onChangeSidechain({ sidechainRelease: Number(e.target.value) })
+            }
+            disabled={!sidechainSourceId}
+          />
+        </label>
       </div>
 
       <div className="field-row field-row--lfo">

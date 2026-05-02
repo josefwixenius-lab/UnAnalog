@@ -376,6 +376,29 @@ export class Sequencer {
           const nudgeSec = nudgeFrac * stepSec;
           const voice = this.voices.get(t.id);
           const isNoise = t.voice === 'hats';
+
+          // Sidechain-duck: hitta alla spår vars source är detta spår och
+          // schedulera en duck-envelope på var och en. Pre-compute så vi
+          // inte itererar p.tracks på varje ratchet-iteration.
+          const duckTargets: Array<{
+            chain: TrackFxChain;
+            amount: number;
+            release: number;
+          }> = [];
+          for (const tt of p.tracks) {
+            if (tt.id === t.id) continue;
+            if (tt.sidechainSourceId !== t.id) continue;
+            const amt = tt.sidechainAmount ?? 0;
+            if (amt <= 0) continue;
+            const targetVoice = this.voices.get(tt.id);
+            if (!targetVoice) continue;
+            duckTargets.push({
+              chain: targetVoice.fxChain,
+              amount: amt,
+              release: tt.sidechainRelease ?? 0.18,
+            });
+          }
+
           for (let r = 0; r < ratchet; r++) {
             // Tone har lookahead (~100 ms) så negativ nudge funkar upp till ±50% av steget
             // vid rimliga tempon. Vid mycket höga BPM kan negativ nudge klippas av Tone.
@@ -394,6 +417,12 @@ export class Sequencer {
                 midiOutId: t.midiOutId,
                 slide: pitch.slide,
               });
+            }
+            // Pumpa alla sidechain-targets på exakt samma tid som transient
+            // attacken. På en ratchet 4× pumpar vi fyra gånger i rad, vilket
+            // ger den klassiska "pumppumppumppump"-känslan.
+            for (const dt of duckTargets) {
+              dt.chain.applyDuck(t0, dt.amount, dt.release);
             }
           }
         }
