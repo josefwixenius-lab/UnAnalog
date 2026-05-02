@@ -5,7 +5,7 @@ import { VOICE_LABELS } from '../engine/voices';
 const DIRECTION_OPTIONS: { id: PlayDirection; label: string; hint: string }[] = [
   { id: 'forward', label: '▶ Framåt', hint: 'Standardriktning — 0, 1, 2, …, len-1, 0, …' },
   { id: 'reverse', label: '◀ Bakåt', hint: 'Spelar baklänges — len-1, len-2, …, 1, 0, len-1, …' },
-  { id: 'pingpong', label: '◀▶ Ping-pong', hint: 'Studsar fram och tillbaka mellan ändarna' },
+  { id: 'pingpong', label: '↔ Fram & tillbaka', hint: 'Studsar fram och tillbaka mellan ändarna utan att dubbla ändtonerna' },
   { id: 'random', label: '🎲 Slump', hint: 'Plockar ett random index varje step' },
   { id: 'brownian', label: '➰ Brownian', hint: 'Random walk — vandrar ±1 utan stora hopp' },
 ];
@@ -39,7 +39,20 @@ export function TrackStrip({
           <div
             key={t.id}
             className={`trackstrip__item ${active ? 'is-active' : ''} ${!t.enabled ? 'is-muted' : ''}`}
-            onClick={() => onSelect(t.id)}
+            // Auto-select vid FÖRSTA interaktion — mousedown bubblar från
+            // alla sub-controls (utom där vi explicit stoppar det, t.ex.
+            // trash-knappen) och fyrar innan slider/select/click-handlers.
+            // → hjärnan tänker "det här spåret jobbar jag på" och Tools-
+            // panelen följer med automatiskt även när man bara fippar med
+            // solo/mute/voice/dir/vol/pan på ett INAKTIVT spår.
+            onMouseDown={() => {
+              if (!active) onSelect(t.id);
+            }}
+            // Behåll click-fallback för tangentbord-aktivering (Enter/Space)
+            // och tillgänglighet — på vissa enheter fires inte mousedown.
+            onClick={() => {
+              if (!active) onSelect(t.id);
+            }}
             style={{ borderColor: active ? t.color : undefined }}
           >
             <span className="trackstrip__color" style={{ background: t.color }} />
@@ -190,6 +203,9 @@ export function TrackStrip({
             {pattern.tracks.length > 1 && (
               <button
                 className="tiny"
+                // Stoppar mousedown också så vi inte hinner selecta spåret
+                // innan vi raderar det (skulle ge onödigt undo-state-trams).
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemove(t.id);

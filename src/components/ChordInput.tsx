@@ -145,7 +145,16 @@ export function ChordInput({ activeTrackName, onChord }: Props) {
         Ackord-input → {activeTrackName}
       </span>
 
-      <div className="field-row">
+      <div
+        className="field-row chord__dir-row"
+        title="Hur ackord-toner FÖRDELAS över pitch-stegen vid inmatning. Detta är inte samma som spårets uppspelningsriktning (den sätts i TrackStrip → dir)."
+      >
+        <span className="group__sublabel">
+          Fördelning av ackord-toner
+          <small className="chord__dir-hint">
+            (vid inmatning · uppspelningsriktning sätts i TrackStrip)
+          </small>
+        </span>
         <div className="chord__dir">
           {DIRECTIONS.map((d) => (
             <button
