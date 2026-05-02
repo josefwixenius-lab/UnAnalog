@@ -433,6 +433,7 @@ export function Tools({
         const delayMode: DelayMode = fx.delayMode ?? 'pingpong';
         const reverbShort = fx.reverbShort ?? 0;
         const reverbLong = fx.reverbLong ?? fx.reverb;
+        const reverbPreDelay = fx.reverbPreDelay ?? 0;
         const chorus = fx.chorus ?? 0;
         const chorusRate = fx.chorusRate ?? 1.5;
         const chorusDepth = fx.chorusDepth ?? 0.7;
@@ -532,6 +533,23 @@ export function Tools({
                   step={0.02}
                   value={reverbLong}
                   onChange={(e) => onChangeFx({ reverbLong: Number(e.target.value) })}
+                />
+              </label>
+              <label
+                className="field"
+                title="Pre-delay: kort tystnad mellan transient och reverb-svans. 0 = svansen börjar direkt (mosigt), 30–80 ms = transient hörs ren först (pro-känsla). Gäller båda Short och Long."
+              >
+                <span>Pre {Math.round(reverbPreDelay * 1000)} ms</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={0.15}
+                  step={0.005}
+                  value={reverbPreDelay}
+                  onChange={(e) =>
+                    onChangeFx({ reverbPreDelay: Number(e.target.value) })
+                  }
+                  disabled={reverbShort === 0 && reverbLong === 0}
                 />
               </label>
             </div>

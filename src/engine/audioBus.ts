@@ -197,6 +197,13 @@ export class TrackFxChain {
   // Reverb
   private reverbShortSend: Tone.Gain;
   private reverbLongSend: Tone.Gain;
+  /**
+   * Pre-delay-noder mellan reverb-send och globala reverb. Båda styrs av
+   * samma `fx.reverbPreDelay` så användaren har EN slider att tänka på.
+   * 0–0.15 s. Default 0 = transparent (signal går rakt igenom).
+   */
+  private reverbShortPreDelay: Tone.Delay;
+  private reverbLongPreDelay: Tone.Delay;
   // Saturation
   private satSend: Tone.Gain;
   private saturation: Tone.Distortion;
@@ -220,6 +227,8 @@ export class TrackFxChain {
 
     this.reverbShortSend = new Tone.Gain(0);
     this.reverbLongSend = new Tone.Gain(0);
+    this.reverbShortPreDelay = new Tone.Delay({ delayTime: 0, maxDelay: 0.2 });
+    this.reverbLongPreDelay = new Tone.Delay({ delayTime: 0, maxDelay: 0.2 });
 
     this.satSend = new Tone.Gain(0);
     this.saturation = new Tone.Distortion({ distortion: 0.4, oversample: '2x', wet: 1 });
@@ -263,9 +272,12 @@ export class TrackFxChain {
     // Delay routas via DelayUnit (output redan kopplad till masterInput)
     this.delaySend.connect(this.delayUnit.getInput());
 
-    // Reverb-sends → globala reverbs
-    this.reverbShortSend.connect(sharedShortReverb!);
-    this.reverbLongSend.connect(sharedLongReverb!);
+    // Reverb-sends → pre-delay → globala reverbs. Pre-delay default 0
+    // gör kedjan transparent tills användaren skruvar upp.
+    this.reverbShortSend.connect(this.reverbShortPreDelay);
+    this.reverbShortPreDelay.connect(sharedShortReverb!);
+    this.reverbLongSend.connect(this.reverbLongPreDelay);
+    this.reverbLongPreDelay.connect(sharedLongReverb!);
 
     this.setFx(initial);
   }
@@ -322,6 +334,7 @@ export class TrackFxChain {
     const delayMode = fx.delayMode ?? 'pingpong';
     const reverbShort = clamp01(fx.reverbShort ?? 0);
     const reverbLong = clamp01(fx.reverbLong ?? fx.reverb);
+    const reverbPreDelay = Math.max(0, Math.min(0.15, fx.reverbPreDelay ?? 0));
     const sat = clamp01(fx.saturation);
     const chorus = clamp01(fx.chorus ?? 0);
     const chorusRate = Math.max(0.1, Math.min(6, fx.chorusRate ?? 1.5));
@@ -345,6 +358,11 @@ export class TrackFxChain {
     // av frequency och depth utan att rebuild:a. delayTime är fast 3.5 ms.
     this.chorus.frequency.value = chorusRate;
     this.chorus.depth = chorusDepth;
+
+    // Reverb pre-delay: samma värde till båda sends så användaren bara
+    // tänker på en slider. Tone.Delay låter delayTime ändras live.
+    this.reverbShortPreDelay.delayTime.value = reverbPreDelay;
+    this.reverbLongPreDelay.delayTime.value = reverbPreDelay;
 
     // Bitcrusher: bits 1–8 där 8 = nästan ren, 1 = total decimering. Mappa
     // wet 0–1 → bits 8 → 2 (1 låter för otäckt vid full mix).
@@ -385,5 +403,9 @@ export class TrackFxChain {
     this.crusher.dispose();
     this.delayUnit.dispose();
     this.duckGain.dispose();
+    this.reverbShortPreDelay.disconnect();
+    this.reverbLongPreDelay.disconnect();
+    this.reverbShortPreDelay.dispose();
+    this.reverbLongPreDelay.dispose();
   }
 }

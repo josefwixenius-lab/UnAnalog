@@ -130,6 +130,13 @@ export type TrackFx = {
   reverbShort?: number;
   /** Send till lång reverb (~6.5 s decay) — för synthwave-pad-svans, lead-bakgrund. Default = legacy `reverb`. */
   reverbLong?: number;
+  /**
+   * Reverb pre-delay 0–0.15 s (0–150 ms). Lägger en kort delay mellan
+   * dry-signalen och reverb-svansen så transienten hörs ren innan
+   * svansen kommer in. Gör leads och pads mer "pro" och mindre mosiga.
+   * Gäller båda Short och Long sends för enkelhet. Default 0.
+   */
+  reverbPreDelay?: number;
 
   // --- Modulation + krasch ---
   /** Chorus-wet 0–1. Per-spår-instans. Default 0. */
