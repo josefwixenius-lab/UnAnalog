@@ -624,6 +624,26 @@ export default function App() {
     [updatePattern],
   );
 
+  // Filter-baseline. `null` i patch betyder "återgå till voice-default" och
+  // sätter fältet till undefined så Sequencer.syncVoices skickar undefined
+  // till voice → den använder sin hårdkodade defaultfrekvens.
+  const onChangeFilter = useCallback(
+    (patch: { filterCutoff?: number | null; filterResonance?: number | null }) =>
+      updatePattern((p) =>
+        updateActiveTrack(p, (t) => {
+          const next = { ...t };
+          if ('filterCutoff' in patch) {
+            next.filterCutoff = patch.filterCutoff ?? undefined;
+          }
+          if ('filterResonance' in patch) {
+            next.filterResonance = patch.filterResonance ?? undefined;
+          }
+          return next;
+        }),
+      ),
+    [updatePattern],
+  );
+
   const onMasterDbChange = useCallback(
     (v: number) => setBank((b) => ({ ...b, masterDb: v })),
     [setBank],
@@ -1033,6 +1053,9 @@ export default function App() {
             lfo={activeTrack.lfo}
             velocityJitter={activeTrack.velocityJitter ?? 0}
             fx={activeTrack.fx ?? { delay: 0, reverb: 0, saturation: 0 }}
+            filterCutoff={activeTrack.filterCutoff}
+            filterResonance={activeTrack.filterResonance}
+            onChangeFilter={onChangeFilter}
             onResize={onResize}
             onMutate={onMutate}
             onRandomizePitch={onRandomizePitch}

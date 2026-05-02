@@ -37,6 +37,9 @@ type Props = {
   lfo: TrackLfo;
   velocityJitter: number;
   fx: TrackFx;
+  filterCutoff: number | undefined;
+  filterResonance: number | undefined;
+  onChangeFilter: (patch: { filterCutoff?: number | null; filterResonance?: number | null }) => void;
   onResize: (pitchLen: number, gateLen: number) => void;
   onMutate: () => void;
   onRandomizePitch: () => void;
@@ -64,6 +67,9 @@ export function Tools({
   lfo,
   velocityJitter,
   fx,
+  filterCutoff,
+  filterResonance,
+  onChangeFilter,
   onResize,
   onMutate,
   onRandomizePitch,
@@ -207,6 +213,60 @@ export function Tools({
         </label>
         <button className="chip" onClick={() => onEuclidean(euclid)}>
           Fördela {euclid} pulser över {gateLength} steg
+        </button>
+      </div>
+
+      <div className="field-row field-row--filter">
+        <span className="group__label">Filter</span>
+        <label
+          className="field"
+          title="Cutoff baseline. 0 = mörkt (80 Hz), 1 = ljust (16 kHz). Per-step filter-lock modulerar runt detta värde. Dubbelklicka för voice-default."
+        >
+          <span>
+            Cutoff{' '}
+            {filterCutoff == null ? 'voice' : Math.round(filterCutoff * 100) + '%'}
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={filterCutoff ?? 0.5}
+            onChange={(e) =>
+              onChangeFilter({ filterCutoff: Number(e.target.value) })
+            }
+            onDoubleClick={() => onChangeFilter({ filterCutoff: null })}
+          />
+        </label>
+        <label
+          className="field"
+          title="Resonans (Q). 0 = neutral, 1 = sjungande. Acid-bas vill ha hög resonans + cutoff-LFO."
+        >
+          <span>
+            Reso{' '}
+            {filterResonance == null ? '–' : Math.round(filterResonance * 100) + '%'}
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.02}
+            value={filterResonance ?? 0}
+            onChange={(e) =>
+              onChangeFilter({ filterResonance: Number(e.target.value) })
+            }
+            onDoubleClick={() => onChangeFilter({ filterResonance: null })}
+          />
+        </label>
+        <button
+          className="chip chip--reset"
+          onClick={() =>
+            onChangeFilter({ filterCutoff: null, filterResonance: null })
+          }
+          disabled={filterCutoff == null && filterResonance == null}
+          title="Återställ till voice-default cutoff & neutral resonans"
+        >
+          ↺ Default
         </button>
       </div>
 

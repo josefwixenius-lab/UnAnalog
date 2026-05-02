@@ -185,6 +185,7 @@ export class Sequencer {
         existing?.fxChain.dispose();
         const voice = createVoice(t.voice);
         voice.setVolume(t.volumeDb);
+        voice.setFilterBase(t.filterCutoff, t.filterResonance);
         voice.setLfo(t.lfo);
         const fxChain = new TrackFxChain(fx);
         fxChain.setPan(pan);
@@ -192,6 +193,7 @@ export class Sequencer {
         this.voices.set(t.id, { kind: t.voice, voice, fxChain });
       } else {
         existing.voice.setVolume(t.volumeDb);
+        existing.voice.setFilterBase(t.filterCutoff, t.filterResonance);
         existing.voice.setLfo(t.lfo);
         existing.fxChain.setFx(fx);
         existing.fxChain.setPan(pan);

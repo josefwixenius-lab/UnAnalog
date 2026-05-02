@@ -154,6 +154,19 @@ export type Track = {
    * behåller pan-positionen istället för att läcka tillbaka centrerat.
    */
   pan?: number;
+  /**
+   * Filter cutoff baseline 0–1. Mappar logaritmiskt till 80 Hz–16 kHz.
+   * Om satt skriver det över voice-defaulten (bass=1.6k, lead=3.8k, etc).
+   * `filterLock` per step modulerar fortfarande RUNT denna baseline.
+   * Saknat = använd voice-default (bakåtkompat).
+   */
+  filterCutoff?: number;
+  /**
+   * Filter Q (resonans) 0–1. Mappar linjärt till Q 0.7–12. Default 0
+   * (~Q 0.7, neutral). Höga värden gör filter "sjunger" — viktigt för
+   * acid-bas och classic synthwave-leads.
+   */
+  filterResonance?: number;
   color: string;
   voice: VoiceKind;
   volumeDb: number;

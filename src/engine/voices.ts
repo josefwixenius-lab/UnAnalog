@@ -15,10 +15,32 @@ export interface Voice {
   ): void;
   setVolume(deltaDb: number): void;
   setLfo(lfo: TrackLfo): void;
+  /**
+   * Sätt filter cutoff/resonance-baseline. Båda är 0–1 (linjärt input)
+   * eller `null`/`undefined` för att använda voice-default. Cutoff mappar
+   * logaritmiskt 80 Hz–16 kHz, resonance linjärt Q 0.7–12.
+   */
+  setFilterBase(cutoff?: number | null, resonance?: number | null): void;
   /** Ansluter voicens output till en extern node (t.ex. TrackFxChain-input). */
   connectOutput(dest: Tone.InputNode): void;
   disconnectOutput(): void;
   dispose(): void;
+}
+
+/**
+ * Mappa cutoff 0–1 → frekvens 80 Hz – 16 kHz logaritmiskt.
+ * Vid 0.5 hamnar man runt 1.1 kHz vilket är musikaliskt rimligt mitt-värde.
+ */
+function cutoffToHz(cutoff: number): number {
+  const c = Math.max(0, Math.min(1, cutoff));
+  // 80 * (16000/80)^c = 80 * 200^c
+  return 80 * Math.pow(200, c);
+}
+
+/** Map resonance 0–1 → Q 0.7–12 (linjärt). 0 = neutral, 1 = sjungande. */
+function resonanceToQ(resonance: number): number {
+  const r = Math.max(0, Math.min(1, resonance));
+  return 0.7 + r * 11.3;
 }
 
 type SynthParams = {
@@ -85,6 +107,7 @@ class SynthVoice implements Voice {
   private baseDb: number;
   private baseFilter: number;
   private lfoRig: LfoRig;
+  private lastLfo: TrackLfo | null = null;
   private currentDest: Tone.InputNode | null = null;
 
   constructor(p: SynthParams) {
@@ -140,7 +163,22 @@ class SynthVoice implements Voice {
     this.volume.volume.value = this.baseDb + deltaDb;
   }
   setLfo(lfo: TrackLfo) {
+    this.lastLfo = lfo;
     this.lfoRig.apply(lfo);
+  }
+  setFilterBase(cutoff?: number | null, resonance?: number | null) {
+    if (cutoff != null) {
+      this.baseFilter = cutoffToHz(cutoff);
+      this.filter.frequency.value = this.baseFilter;
+      // LfoRig fångar baseFilter i konstruktorn → vi måste bygga om den
+      // för att den nya baseline ska gälla för LFO-modulationen.
+      this.lfoRig.dispose();
+      this.lfoRig = new LfoRig(this.filter, this.volume, this.baseFilter);
+      if (this.lastLfo) this.lfoRig.apply(this.lastLfo);
+    }
+    if (resonance != null) {
+      this.filter.Q.value = resonanceToQ(resonance);
+    }
   }
   dispose() {
     this.lfoRig.dispose();
@@ -170,6 +208,7 @@ class NoiseVoice implements Voice {
   private baseDb: number;
   private baseFilter: number;
   private lfoRig: LfoRig;
+  private lastLfo: TrackLfo | null = null;
   private currentDest: Tone.InputNode | null = null;
 
   constructor(p: NoiseParams) {
@@ -219,7 +258,22 @@ class NoiseVoice implements Voice {
     this.volume.volume.value = this.baseDb + deltaDb;
   }
   setLfo(lfo: TrackLfo) {
+    this.lastLfo = lfo;
     this.lfoRig.apply(lfo);
+  }
+  setFilterBase(cutoff?: number | null, resonance?: number | null) {
+    if (cutoff != null) {
+      // NoiseVoice använder highpass — cutoff styr brusets tonkaraktär.
+      // Mappar samma 80–16k men den användbara zonen är 2k–12k för hihat.
+      this.baseFilter = cutoffToHz(cutoff);
+      this.filter.frequency.value = this.baseFilter;
+      this.lfoRig.dispose();
+      this.lfoRig = new LfoRig(this.filter, this.volume, this.baseFilter);
+      if (this.lastLfo) this.lfoRig.apply(this.lastLfo);
+    }
+    if (resonance != null) {
+      this.filter.Q.value = resonanceToQ(resonance);
+    }
   }
   dispose() {
     this.lfoRig.dispose();
