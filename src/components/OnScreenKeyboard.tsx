@@ -268,9 +268,10 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
         {whiteKeys.map((k) => {
           const degree = scaleDegree(k.midi);
           const root = isRoot(k.midi);
-          // Visa scale-degree (1, 3, 5 osv) på skala-toner, note-name på övriga.
-          // På rotton visas en stjärna istället för "1" så den sticker ut extra.
-          const label = degree != null ? (root ? '★' : String(degree)) : k.label;
+          // Visa BARA scale-degree på skala-toner (★ för rotton, annars 2-7).
+          // Out-of-scale-tangenter renderas helt utan synlig label så
+          // klaviaturen håller sig clean och fokuserad på vad som passar.
+          const label = degree != null ? (root ? '★' : String(degree)) : null;
           return (
             <button
               key={`w-${k.midi}`}
@@ -286,7 +287,7 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
               }
               aria-label={midiToName(k.midi)}
             >
-              <span className="osk__key-label">{label}</span>
+              {label != null && <span className="osk__key-label">{label}</span>}
             </button>
           );
         })}
