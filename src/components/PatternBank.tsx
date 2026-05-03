@@ -14,6 +14,8 @@ type Props = {
   onExport: (customName: string | null) => void;
   onExportMidi: (bars: number, customName: string | null) => void;
   onImportFile: (file: File) => void;
+  /** Öppna Reset all-modalen för att rensa hela banken till app-default. */
+  onRequestResetAll: () => void;
 };
 
 export function PatternBank({
@@ -26,6 +28,7 @@ export function PatternBank({
   onExport,
   onExportMidi,
   onImportFile,
+  onRequestResetAll,
 }: Props) {
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [exportName, setExportName] = useState('');
@@ -153,6 +156,13 @@ export function PatternBank({
             e.target.value = '';
           }}
         />
+        <button
+          className="chip chip--danger"
+          onClick={onRequestResetAll}
+          title="Rensa hela banken till app-default. Bekräftas i en dialog där du också kan välja att spara JSON först."
+        >
+          🗑 Reset all
+        </button>
       </div>
     </div>
   );

@@ -67,6 +67,7 @@ import { ChordInput } from './components/ChordInput';
 import { OnScreenKeyboard } from './components/OnScreenKeyboard';
 import { MidiImport } from './components/MidiImport';
 import { Manual } from './components/Manual';
+import { ResetConfirm } from './components/ResetConfirm';
 import { QuickActions } from './components/QuickActions';
 import { importTrackToActive } from './engine/midiImport';
 import { downloadPatternAsMidi } from './engine/midiExport';
@@ -117,6 +118,7 @@ export default function App() {
   const [externalBpm, setExternalBpm] = useState<number | null>(null);
   const [externalListening, setExternalListening] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [stepDetail, setStepDetail] = useState<'compact' | 'detailed'>(() => {
     if (typeof window === 'undefined') return 'compact';
     return (window.localStorage.getItem('unanalog.stepDetail') as 'compact' | 'detailed') || 'compact';
@@ -822,6 +824,36 @@ export default function App() {
     [bank],
   );
 
+  // Reset all — rensar HELA banken till app-default. Triggas från en
+  // bekräftelse-modal i PatternBank-panelen så ingen klickar fel.
+  const onResetAll = useCallback(() => {
+    // Stoppa eventuell pågående uppspelning först — annars fortsätter
+    // den efter rensning vilket kan trigga noter på det nya patternet.
+    if (playing) {
+      seqRef.current?.stop();
+      panicAllTracks(pattern.tracks);
+    }
+    setBankSilent(emptyBank());
+    setQueuedSlot(null);
+    setSongIndex(0);
+    setRecordArmed(false);
+    setRecording(false);
+    setRolling(false);
+    setPlaying(false);
+    setResetConfirmOpen(false);
+  }, [setBankSilent, playing, pattern.tracks, panicAllTracks]);
+
+  // Spara-och-rensa: ladda ner JSON, vänta lite så download-eventet
+  // hinner triggers innan state nullas (annars kan en del browsers
+  // missa filen om vi rensar bank och ändrar Blob-URL för snabbt).
+  const onSaveAndReset = useCallback(
+    (customName: string | null) => {
+      downloadBankFile(bank, customName);
+      window.setTimeout(() => onResetAll(), 150);
+    },
+    [bank, onResetAll],
+  );
+
   const onExportMidi = useCallback(
     (bars: number, customName: string | null) =>
       downloadPatternAsMidi(pattern, { bars, fileName: customName, randomize: false }),
@@ -1115,6 +1147,7 @@ export default function App() {
             onExport={onExport}
             onExportMidi={onExportMidi}
             onImportFile={onImportFile}
+            onRequestResetAll={() => setResetConfirmOpen(true)}
           />
         </section>
 
@@ -1264,6 +1297,12 @@ export default function App() {
       </footer>
 
       <Manual open={manualOpen} onClose={() => setManualOpen(false)} />
+      <ResetConfirm
+        open={resetConfirmOpen}
+        onClose={() => setResetConfirmOpen(false)}
+        onSaveAndReset={onSaveAndReset}
+        onResetOnly={onResetAll}
+      />
     </div>
   );
 }
