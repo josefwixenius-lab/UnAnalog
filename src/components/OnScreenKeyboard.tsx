@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Tone from 'tone';
 import type { Pattern } from '../engine/types';
 import type { ArpDirection } from '../engine/patterns';
-import { NOTE_NAMES, SCALE_INTERVALS, midiToName } from '../engine/scales';
+import { NOTE_NAMES, SCALE_INTERVALS, SCALE_LABELS, midiToName } from '../engine/scales';
 
 /**
  * Virtuell pianoklaviatur — mata in toner med musen istället för MIDI-keyboard.
@@ -135,10 +135,24 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
     setOctave((o) => Math.min(o, Math.max(0, 8 - next)));
   };
 
-  const isInScale = (midi: number) => {
+  /**
+   * Räkna ut scale-degree (1–N) för en MIDI-not, eller null om tonen INTE
+   * är i den valda skalan. Rotton = 1, sen kvinten = 5 i en major-skala
+   * osv. Användbart för att visa "var i skalan" varje tangent ligger.
+   */
+  const scaleDegree = (midi: number): number | null => {
     const rel = (((midi - pattern.rootNote) % 12) + 12) % 12;
-    return intervals.includes(rel);
+    const idx = intervals.indexOf(rel);
+    return idx >= 0 ? idx + 1 : null;
   };
+
+  const isRoot = (midi: number) => {
+    const rel = (((midi - pattern.rootNote) % 12) + 12) % 12;
+    return rel === 0;
+  };
+
+  // Tonart-text för headern: t.ex. "A Moll" eller "C Pentatonisk dur".
+  const keyName = `${NOTE_NAMES[pattern.rootNote]} ${SCALE_LABELS[pattern.scale]}`;
 
   const handleKeyClick = (midi: number) => {
     audition(midi);
@@ -173,6 +187,9 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
     <div className="osk">
       <div className="osk__header">
         <h3>🎹 Klaviatur — mata in toner med musen</h3>
+        <span className="osk__key-info" title="Aktuell tonart (rotton + skala). Skalans toner highlightas grönt nedan, rotton (1:an) med accentfärg.">
+          {keyName}
+        </span>
         <span className="osk__hint">→ {activeTrackName}</span>
       </div>
 
@@ -248,20 +265,31 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
         role="group"
         aria-label="Pianoklaviatur"
       >
-        {whiteKeys.map((k) => (
-          <button
-            key={`w-${k.midi}`}
-            type="button"
-            className={`osk__key osk__key--white ${
-              isInScale(k.midi) ? 'is-in-scale' : ''
-            } ${buffer.includes(k.midi) ? 'is-pressed' : ''}`}
-            onClick={() => handleKeyClick(k.midi)}
-            title={midiToName(k.midi)}
-            aria-label={midiToName(k.midi)}
-          >
-            <span className="osk__key-label">{k.label}</span>
-          </button>
-        ))}
+        {whiteKeys.map((k) => {
+          const degree = scaleDegree(k.midi);
+          const root = isRoot(k.midi);
+          // Visa scale-degree (1, 3, 5 osv) på skala-toner, note-name på övriga.
+          // På rotton visas en stjärna istället för "1" så den sticker ut extra.
+          const label = degree != null ? (root ? '★' : String(degree)) : k.label;
+          return (
+            <button
+              key={`w-${k.midi}`}
+              type="button"
+              className={`osk__key osk__key--white ${
+                degree != null ? 'is-in-scale' : ''
+              } ${root ? 'is-root' : ''} ${buffer.includes(k.midi) ? 'is-pressed' : ''}`}
+              onClick={() => handleKeyClick(k.midi)}
+              title={
+                degree != null
+                  ? `${midiToName(k.midi)} — skalsteg ${degree}${root ? ' (rotton)' : ''}`
+                  : `${midiToName(k.midi)} — utanför skalan`
+              }
+              aria-label={midiToName(k.midi)}
+            >
+              <span className="osk__key-label">{label}</span>
+            </button>
+          );
+        })}
         {blackKeys.map((k) => {
           // Centrera svart tangent ovanför gränsen mellan whiteIdx och whiteIdx+1.
           // Bredd skalas med antalet vita tangenter — så svarta håller sig
@@ -269,21 +297,33 @@ export function OnScreenKeyboard({ pattern, activeTrackName, onChord }: Props) {
           const whiteWidthPct = 100 / totalWhite;
           const blackWidthPct = whiteWidthPct * 0.6;
           const leftPct = ((k.afterWhiteIdx + 1) / totalWhite) * 100;
+          const degree = scaleDegree(k.midi);
+          const root = isRoot(k.midi);
           return (
             <button
               key={`b-${k.midi}`}
               type="button"
               className={`osk__key osk__key--black ${
-                isInScale(k.midi) ? 'is-in-scale' : ''
-              } ${buffer.includes(k.midi) ? 'is-pressed' : ''}`}
+                degree != null ? 'is-in-scale' : ''
+              } ${root ? 'is-root' : ''} ${buffer.includes(k.midi) ? 'is-pressed' : ''}`}
               style={{
                 left: `${leftPct - blackWidthPct / 2}%`,
                 width: `${blackWidthPct}%`,
               }}
               onClick={() => handleKeyClick(k.midi)}
-              title={midiToName(k.midi)}
+              title={
+                degree != null
+                  ? `${midiToName(k.midi)} — skalsteg ${degree}${root ? ' (rotton)' : ''}`
+                  : midiToName(k.midi)
+              }
               aria-label={midiToName(k.midi)}
-            />
+            >
+              {degree != null && (
+                <span className="osk__key-label osk__key-label--black">
+                  {root ? '★' : degree}
+                </span>
+              )}
+            </button>
           );
         })}
       </div>

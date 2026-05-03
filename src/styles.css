@@ -1023,6 +1023,21 @@ body {
   color: var(--text-dim);
 }
 
+/* Tonart-info: chip-look mellan rubrik och track-pekare så användaren
+   alltid ser vilken rotton + skala som highlightas på klaviaturen. */
+.osk__key-info {
+  display: inline-block;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
 .osk__controls {
   display: flex;
   align-items: center;
@@ -1093,11 +1108,37 @@ body {
 .osk__key--white.is-in-scale:hover {
   background: linear-gradient(180deg, #eaf7ee 0%, #b5ecd0 100%);
 }
+/* Rotton (skalsteg 1) sticker ut extra med starkare grön-accent och bold
+   text — användaren ser direkt VAR i klaviaturen tonarten "vilar". */
+.osk__key--white.is-root {
+  background: linear-gradient(180deg, #d8f5e6 0%, #7ee7c1 100%);
+  border-color: #4eb88f;
+}
+.osk__key--white.is-root .osk__key-label {
+  color: #1a3d2e;
+  font-weight: 800;
+  font-size: 13px;
+  opacity: 1;
+}
+.osk__key--white.is-root:hover {
+  background: linear-gradient(180deg, #b5ecd0 0%, #5dd3a8 100%);
+}
 .osk__key--white.is-pressed,
 .osk__key--white.is-pressed:hover {
   background: #f7c873;
   border-color: #e2a23a;
   color: #2a1e08;
+}
+/* Pressed har högsta prio — överrider rot-stilen */
+.osk__key--white.is-root.is-pressed {
+  background: #f7c873;
+  border-color: #e2a23a;
+}
+.osk__key--white.is-in-scale .osk__key-label {
+  /* Skalsteg-siffrorna är pedagogiska — tona ner opaciteten lite mindre
+     än note-namnen så de syns men inte stör. */
+  opacity: 0.85;
+  font-weight: 700;
 }
 .osk__key-label {
   pointer-events: none;
@@ -1125,10 +1166,47 @@ body {
 .osk__key--black.is-in-scale:hover {
   background: linear-gradient(180deg, #2a2f3b 0%, #3a5a4e 100%);
 }
+.osk__key--black.is-root {
+  background: linear-gradient(180deg, #1a3d2e 0%, #4eb88f 100%);
+  border-color: #7ee7c1;
+}
+.osk__key--black.is-root:hover {
+  background: linear-gradient(180deg, #2a4d3e 0%, #5dd3a8 100%);
+}
 .osk__key--black.is-pressed,
 .osk__key--black.is-pressed:hover {
   background: #f7c873;
   border-color: #e2a23a;
+}
+/* Pressed har högsta prio även på rot-svart */
+.osk__key--black.is-root.is-pressed {
+  background: #f7c873;
+  border-color: #e2a23a;
+}
+/* Scale-degree-label på svart tangent — placerad i botten med vit text
+   så den syns mot den mörka bakgrunden. */
+.osk__key-label--black {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #c5e7d5;
+  pointer-events: none;
+}
+.osk__key--black.is-root .osk__key-label--black {
+  color: #fff;
+  font-size: 11px;
+}
+.osk__key--black {
+  /* Behöver position:relative för att absolutpositionerade label ska
+     ligga i tangenten — annars relativt .osk__keys */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .osk__buffer {
