@@ -149,3 +149,9 @@ Hela 7-stegs-paketet är byggt och pushat:
 - ✅ Mute-grupper A/B/C/D (Transport-toggle + per-spår grp-tagg)
 - ✅ Chorus-djup (rate + depth per spår, live-justerbart)
 - ✅ Reverb pre-delay per spår (0–150 ms, för båda Short/Long sends)
+- ✅ Swing per spår (override-modell över global pattern.swing — Dilla-trick)
+- ✅ TrackStrip 2-rad responsiv layout (live + setup separerade)
+- ✅ Klaviatur: tonart-chip + scale-degree-labels + rotton ★ + clean out-of-scale
+- ✅ Auto-select när man rör ett spår (alla kontroller selectar automatiskt)
+- ✅ ChordInput: "Fördelning"-rubrik klargör skillnad från spår-riktning
+- ✅ 🗑 Reset all (med bekräftelsemodal + spara JSON-först-flöde)
