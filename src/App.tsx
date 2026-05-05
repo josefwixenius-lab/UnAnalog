@@ -11,6 +11,7 @@ import {
   clearActiveGates,
   copyActiveRow,
   humanizeNudgeActive,
+  morphPatterns,
   mutateActiveTrack,
   pasteRowToActive,
   randomizeActivePitch,
@@ -71,6 +72,7 @@ import { ResetConfirm } from './components/ResetConfirm';
 import { QuickActions } from './components/QuickActions';
 import { importTrackToActive } from './engine/midiImport';
 import { downloadPatternAsMidi } from './engine/midiExport';
+import { exportPatternToWav } from './engine/audioExport';
 import type { ImportedFile, ImportedTrack, QuantResolution } from './engine/midiImport';
 import { setMasterVolumeDb } from './engine/audioBus';
 import { useUndoable } from './engine/useUndo';
@@ -242,6 +244,27 @@ export default function App() {
 
   const barCountRef = useRef(0);
 
+  // --- Pattern-morphing A→B ----------------------------------------------
+  // När en morf är aktiv interpolerar vi från snapshotA till snapshotB över
+  // `durationBars` takter. Resultatet skrivs till `fromSlot` via
+  // setBankNoHistory så ändringen blir transient (ingen undo-spam). Vid
+  // morphens slut: slot:en återställs till snapshotA och activeSlot byts
+  // till `toSlot` så användaren har båda bevarade patterns kvar i banken.
+  const [morphState, setMorphState] = useState<{
+    fromSlot: SlotId;
+    toSlot: SlotId;
+    durationBars: number;
+    progressBars: number;
+  } | null>(null);
+  const morphRef = useRef<{
+    fromSlot: SlotId;
+    toSlot: SlotId;
+    durationBars: number;
+    snapshotA: Pattern;
+    snapshotB: Pattern;
+    startedAtBar: number;
+  } | null>(null);
+
   // --- Loop-inspelning ------------------------------------------------------
   // `recordArmed` = användaren har tryckt Rec men vi har inte landat på nästa
   // takt än. `recording` = LoopRecorder skriver aktivt i aktivt spår.
@@ -298,6 +321,7 @@ export default function App() {
   const handleBar = useCallback(() => {
     const b = bankRef.current;
     const isFirstBar = barCountRef.current === 0;
+    const currentBar = barCountRef.current;
     barCountRef.current += 1;
 
     // Arm → recording vid nästa takt-gräns (kan vara första takten om
@@ -306,6 +330,34 @@ export default function App() {
       recordSnapshotRef.current = bankRef.current;
       setRecordArmed(false);
       setRecording(true);
+    }
+
+    // --- Pattern-morphing -------------------------------------------------
+    // Vid pågående morf interpolerar vi från snapshotA mot snapshotB och
+    // skriver resultatet i fromSlot. När progress når 1 återställs slot:en
+    // till sitt original och activeSlot byts till toSlot.
+    const morph = morphRef.current;
+    if (morph) {
+      const elapsed = currentBar - morph.startedAtBar;
+      const progress = Math.min(1, elapsed / morph.durationBars);
+      if (progress >= 1) {
+        // Färdigmorfat: återställ A:s slot till sitt original, byt till B
+        const slotsRestored = { ...b.slots, [morph.fromSlot]: morph.snapshotA };
+        setBankNoHistory({ ...b, slots: slotsRestored, activeSlot: morph.toSlot });
+        morphRef.current = null;
+        setMorphState(null);
+      } else {
+        const blended = morphPatterns(morph.snapshotA, morph.snapshotB, progress);
+        const slotsBlended = { ...b.slots, [morph.fromSlot]: blended };
+        setBankNoHistory({ ...b, slots: slotsBlended, activeSlot: morph.fromSlot });
+        setMorphState({
+          fromSlot: morph.fromSlot,
+          toSlot: morph.toSlot,
+          durationBars: morph.durationBars,
+          progressBars: elapsed,
+        });
+      }
+      return;
     }
 
     const queued = queuedSlotRef.current;
@@ -325,7 +377,7 @@ export default function App() {
         setBankSilent(setActiveSlot(b, nextSlot));
       }
     }
-  }, [setBankSilent, recordArmed]);
+  }, [setBankSilent, setBankNoHistory, recordArmed]);
 
   const seqRef = useRef<Sequencer | null>(null);
   if (seqRef.current === null) {
@@ -855,10 +907,73 @@ export default function App() {
   );
 
   const onExportMidi = useCallback(
-    (bars: number, customName: string | null) =>
-      downloadPatternAsMidi(pattern, { bars, fileName: customName, randomize: false }),
+    (bars: number, customName: string | null, trackIds?: string[]) =>
+      downloadPatternAsMidi(pattern, {
+        bars,
+        fileName: customName,
+        randomize: false,
+        trackIds,
+      }),
     [pattern],
   );
+
+  // WAV-export är async (Tone.Offline) → vi exponerar en Promise så UI:t
+  // kan visa "renderar..."-tillstånd. Returnerar fileName + sizeBytes vid klart.
+  const [wavExporting, setWavExporting] = useState(false);
+  const onExportWav = useCallback(
+    async (bars: number, customName: string | null) => {
+      setWavExporting(true);
+      try {
+        await exportPatternToWav(pattern, { bars, fileName: customName });
+      } finally {
+        setWavExporting(false);
+      }
+    },
+    [pattern],
+  );
+
+  // Pattern-morphing — startar/stoppar interpolation mellan två slots
+  const onStartMorph = useCallback(
+    (fromSlot: SlotId, toSlot: SlotId, durationBars: number) => {
+      const b = bankRef.current;
+      const snapshotA = b.slots[fromSlot];
+      const snapshotB = b.slots[toSlot];
+      if (!snapshotA || !snapshotB) return;
+      // Strukturklon så snapshots inte muteras när vi skriver morfade
+      // versioner i slot:en under morfens gång.
+      morphRef.current = {
+        fromSlot,
+        toSlot,
+        durationBars: Math.max(1, Math.min(64, durationBars)),
+        snapshotA: structuredClone(snapshotA),
+        snapshotB: structuredClone(snapshotB),
+        // Använd nuvarande bar-count som referens — hanteras i handleBar
+        startedAtBar: barCountRef.current,
+      };
+      setMorphState({
+        fromSlot,
+        toSlot,
+        durationBars,
+        progressBars: 0,
+      });
+      // Säkerställ att fromSlot är aktiv när morfen startar
+      if (b.activeSlot !== fromSlot) {
+        setBankNoHistory(setActiveSlot(b, fromSlot));
+      }
+    },
+    [setBankNoHistory],
+  );
+
+  const onStopMorph = useCallback(() => {
+    const m = morphRef.current;
+    if (!m) return;
+    // Återställ A:s slot till sitt original så användaren inte tappar pattern A
+    const b = bankRef.current;
+    const slotsRestored = { ...b.slots, [m.fromSlot]: m.snapshotA };
+    setBankNoHistory({ ...b, slots: slotsRestored });
+    morphRef.current = null;
+    setMorphState(null);
+  }, [setBankNoHistory]);
 
   const onImportFile = useCallback(
     (file: File) => {
@@ -1141,13 +1256,19 @@ export default function App() {
             bank={bank}
             queuedSlot={queuedSlot}
             syncMode={syncMode}
+            tracks={pattern.tracks}
+            morphState={morphState}
+            wavExporting={wavExporting}
             onSyncModeChange={setSyncMode}
             onSelectSlot={onSelectSlot}
             onClearSlot={onClearSlot}
             onExport={onExport}
             onExportMidi={onExportMidi}
+            onExportWav={onExportWav}
             onImportFile={onImportFile}
             onRequestResetAll={() => setResetConfirmOpen(true)}
+            onStartMorph={onStartMorph}
+            onStopMorph={onStopMorph}
           />
         </section>
 

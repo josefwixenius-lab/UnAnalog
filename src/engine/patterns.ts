@@ -324,10 +324,12 @@ export function applyChordToActive(
         {
           scaleDegree: first.scaleDegree,
           octaveOffset: first.octaveOffset,
+          semitoneOffset: first.semitoneOffset !== 0 ? first.semitoneOffset : undefined,
           slide: false,
           extraNotes: rest.map((n) => ({
             scaleDegree: n.scaleDegree,
             octaveOffset: n.octaveOffset,
+            ...(n.semitoneOffset !== 0 ? { semitoneOffset: n.semitoneOffset } : {}),
           })),
         },
         ...Array.from({ length: Math.max(0, t.pitchSteps.length - 1) }, (_, i) => {
@@ -349,7 +351,12 @@ export function applyChordToActive(
     ...t,
     pitchSteps: Array.from({ length: len }, (_, i) => {
       const src = sequence[i] ?? sequence[sequence.length - 1];
-      return { scaleDegree: src.scaleDegree, octaveOffset: src.octaveOffset, slide: false };
+      return {
+        scaleDegree: src.scaleDegree,
+        octaveOffset: src.octaveOffset,
+        semitoneOffset: src.semitoneOffset !== 0 ? src.semitoneOffset : undefined,
+        slide: false,
+      };
     }),
     gateSteps: Array.from({ length: len }, (_, i) => {
       const existing = t.gateSteps[i];
@@ -683,6 +690,8 @@ function densityFor(voice: VoiceKind, profile: StyleProfile): number {
       return profile.density.bass;
     case 'lead':
     case 'saw':
+    case 'pwm':
+      // PWM beter sig som en lead/saw för randomize-syften
       return profile.density.lead;
     case 'hats':
       return profile.density.hats;
@@ -778,6 +787,90 @@ export function copyActiveRow(p: Pattern, kind: StepRowKind): StepRowClipboard |
     return { kind: 'pitch', steps: t.pitchSteps.map((s) => ({ ...s })) };
   }
   return { kind: 'gate', steps: t.gateSteps.map((s) => ({ ...s })) };
+}
+
+/* ---------- Pattern-morphing A→B ---------- */
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function lerpClampedInt(a: number, b: number, t: number): number {
+  return Math.round(lerp(a, b, t));
+}
+
+/**
+ * Blandar pattern A med pattern B givet en morf-progress 0..1.
+ *
+ * - 0 = exakt pattern A, 1 = exakt pattern B.
+ * - Pitch-stegen lerp:as på `scaleDegree` + `octaveOffset` + `semitoneOffset`
+ *   (rundat till heltal). Övergår alltså gradvis från A:s tonföljd mot B:s.
+ * - Gate.active: switchas vid t = 0.5 (snap, eftersom mellanlägen är meningslösa).
+ * - Gate-parametrar (gate, probability, velocity, nudge): lerp:as smooth.
+ * - Tempo + swing lerpas också så user kan gå från en lugn slot till en
+ *   driving slot smidigt under morfen.
+ *
+ * Spår matchas på index — om A har 3 spår och B har 4, ignoreras det 4:e.
+ * Avlägsna spår från resultat-pattern:et: vi behåller A:s tracks (med blendade
+ * värden där B finns), eftersom track-id stabilitet behövs så TrackFxChain inte
+ * river ner och bygger om sig på varje morf-tick.
+ */
+export function morphPatterns(a: Pattern, b: Pattern, t: number): Pattern {
+  const tt = Math.max(0, Math.min(1, t));
+  const tracks = a.tracks.map((trackA, idx) => {
+    const trackB = b.tracks[idx];
+    if (!trackB) return trackA;
+
+    const pLen = trackA.pitchSteps.length;
+    const gLen = trackA.gateSteps.length;
+    const pitchSteps = trackA.pitchSteps.map((sA, i) => {
+      const sB = trackB.pitchSteps[i % trackB.pitchSteps.length];
+      if (!sB) return sA;
+      return {
+        ...sA,
+        scaleDegree: lerpClampedInt(sA.scaleDegree, sB.scaleDegree, tt),
+        octaveOffset: lerpClampedInt(sA.octaveOffset, sB.octaveOffset, tt),
+        semitoneOffset: lerpClampedInt(
+          sA.semitoneOffset ?? 0,
+          sB.semitoneOffset ?? 0,
+          tt,
+        ),
+        slide: tt > 0.5 ? sB.slide : sA.slide,
+      };
+    });
+    const gateSteps = trackA.gateSteps.map((gA, i) => {
+      const gB = trackB.gateSteps[i % trackB.gateSteps.length];
+      if (!gB) return gA;
+      return {
+        ...gA,
+        active: tt > 0.5 ? gB.active : gA.active,
+        gate: lerp(gA.gate, gB.gate, tt),
+        probability: lerp(gA.probability, gB.probability, tt),
+        velocity: lerp(gA.velocity, gB.velocity, tt),
+        nudge: lerp(gA.nudge, gB.nudge, tt),
+        accent: tt > 0.5 ? gB.accent : gA.accent,
+        ratchet: tt > 0.5 ? gB.ratchet : gA.ratchet,
+        condition: tt > 0.5 ? gB.condition : gA.condition,
+      };
+    });
+
+    return {
+      ...trackA,
+      pitchSteps: pitchSteps.slice(0, pLen),
+      gateSteps: gateSteps.slice(0, gLen),
+      // Lerpa även volume + filter + LFO-djup för smooth FX-morph
+      volumeDb: lerp(trackA.volumeDb, trackB.volumeDb, tt),
+      pan: lerp(trackA.pan ?? 0, trackB.pan ?? 0, tt),
+    };
+  });
+
+  return {
+    ...a,
+    tempo: Math.round(lerp(a.tempo, b.tempo, tt)),
+    swing: lerp(a.swing, b.swing, tt),
+    tracks,
+    // Active track-id behålls — annars tappas StepEditor-fokus
+  };
 }
 
 export function pasteRowToActive(p: Pattern, clip: StepRowClipboard): Pattern {

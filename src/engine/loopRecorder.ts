@@ -72,7 +72,7 @@ export class LoopRecorder {
     const stepCount = this.getStepCount();
     const stepIdx = Math.round(tick / stepSize) % stepCount;
 
-    const { scaleDegree, octaveOffset } = midiToNearestDegree(
+    const { scaleDegree, octaveOffset, semitoneOffset } = midiToNearestDegree(
       midi,
       this.getRoot(),
       this.getBaseOctave(),
@@ -87,11 +87,13 @@ export class LoopRecorder {
       const existingGate = gateSteps[stepIdx];
 
       if (!existingGate?.active) {
-        // Tomt step — skriv in som huvudton
+        // Tomt step — skriv in som huvudton. semitoneOffset bevarar exakt
+        // tonen användaren spelade även om den ligger utanför skalan.
         pitchSteps[stepIdx] = {
           ...existingPitch,
           scaleDegree,
           octaveOffset,
+          semitoneOffset: semitoneOffset !== 0 ? semitoneOffset : undefined,
           slide: existingPitch?.slide ?? false,
           extraNotes: [],
         };
@@ -114,15 +116,26 @@ export class LoopRecorder {
         isPrimary = false;
         const currentExtras = existingPitch.extraNotes ?? [];
         const already = currentExtras.some(
-          (n) => n.scaleDegree === scaleDegree && n.octaveOffset === octaveOffset,
+          (n) =>
+            n.scaleDegree === scaleDegree &&
+            n.octaveOffset === octaveOffset &&
+            (n.semitoneOffset ?? 0) === semitoneOffset,
         );
         const alreadyMain =
           existingPitch.scaleDegree === scaleDegree &&
-          existingPitch.octaveOffset === octaveOffset;
+          existingPitch.octaveOffset === octaveOffset &&
+          (existingPitch.semitoneOffset ?? 0) === semitoneOffset;
         if (!already && !alreadyMain) {
           pitchSteps[stepIdx] = {
             ...existingPitch,
-            extraNotes: [...currentExtras, { scaleDegree, octaveOffset }],
+            extraNotes: [
+              ...currentExtras,
+              {
+                scaleDegree,
+                octaveOffset,
+                ...(semitoneOffset !== 0 ? { semitoneOffset } : {}),
+              },
+            ],
           };
         }
       }

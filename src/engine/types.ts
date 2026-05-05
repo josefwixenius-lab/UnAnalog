@@ -13,11 +13,21 @@ export type ScaleName =
 export type PitchNote = {
   scaleDegree: number;
   octaveOffset: number;
+  /**
+   * Kromatiskt offset i halvtoner (-11..+11) ovanpå scaleDegree+octaveOffset.
+   * 0 (eller saknat) = ren skala-ton. Övriga värden = "out of scale" — låter
+   * användaren välja vilken halvton som helst medan resten av modellen
+   * bevaras (bra för iPad-drag och tonart-byten: offset:et bevaras även när
+   * skalan ändras).
+   */
+  semitoneOffset?: number;
 };
 
 export type PitchStep = {
   scaleDegree: number;
   octaveOffset: number;
+  /** Se PitchNote.semitoneOffset. */
+  semitoneOffset?: number;
   slide: boolean;
   /**
    * Slide-tid 0–1 där 0 = snapp (kort overlap) och 1 = full step-längd.
@@ -51,7 +61,20 @@ export type GateStep = {
   nudge: number;
 };
 
-export type VoiceKind = 'bass' | 'lead' | 'hats' | 'pad' | 'saw';
+export type VoiceKind = 'bass' | 'lead' | 'hats' | 'pad' | 'saw' | 'pwm';
+
+/**
+ * Reverb-karaktär per spår. Fyra typer som mappar mot fyra globalt delade
+ * reverb-instanser i audioBus:
+ * - `hall`    : klassisk konsertsalsklang ~5.5 s, varm svans
+ * - `plate`   : ljusare, snabbare ~2.2 s — drum-rooms, lead-färg
+ * - `spring`  : kort + metalliskt ~0.9 s med high-shelf-cut, surf/spaghetti
+ * - `shimmer` : lång ~7 s med +12 halvton pitch-shift i feedback — pad-magi
+ *
+ * Default `hall` om fältet saknas. Bakåtkompat: legacy `reverbLong > 0` tolkas
+ * som hall, `reverbShort > 0` tolkas som plate (se bank.ts:migrateTrack).
+ */
+export type ReverbType = 'hall' | 'plate' | 'spring' | 'shimmer';
 
 /**
  * Mute-grupper för live-arrangemang. Spår kan taggas med A/B/C/D, och
@@ -125,18 +148,26 @@ export type TrackFx = {
   /** Läge: pingpong (default), mono, tape (pitch-svaj). */
   delayMode?: DelayMode;
 
-  // --- Reverb (två globala instanser med sends per spår) ---
-  /** Send till kort reverb (~1.2 s decay) — för intimitet, snare-rooms, lead-färg. */
-  reverbShort?: number;
-  /** Send till lång reverb (~6.5 s decay) — för synthwave-pad-svans, lead-bakgrund. Default = legacy `reverb`. */
-  reverbLong?: number;
+  // --- Reverb (fyra globala instanser, en per typ; spår väljer typ + send) ---
+  /** Reverb-karaktär. Default `hall`. Se ReverbType-kommentaren i types.ts. */
+  reverbType?: ReverbType;
+  /** Send-mängd 0–1 mot vald reverb-typ. Default 0. */
+  reverbSend?: number;
   /**
    * Reverb pre-delay 0–0.15 s (0–150 ms). Lägger en kort delay mellan
    * dry-signalen och reverb-svansen så transienten hörs ren innan
-   * svansen kommer in. Gör leads och pads mer "pro" och mindre mosiga.
-   * Gäller båda Short och Long sends för enkelhet. Default 0.
+   * svansen kommer in. Gör leads och pads mer "pro" och mindre mosiga. Default 0.
    */
   reverbPreDelay?: number;
+  /**
+   * Legacy-fält (pre-typ-väljaren). Migreras till reverbType+reverbSend i
+   * bank.ts. Behålls i typdefinitionen så gamla sparade banker laddas
+   * oförändrat. Nya banker använder reverbType + reverbSend.
+   * @deprecated
+   */
+  reverbShort?: number;
+  /** @deprecated se reverbShort */
+  reverbLong?: number;
 
   // --- Modulation + krasch ---
   /** Chorus-wet 0–1. Per-spår-instans. Default 0. */

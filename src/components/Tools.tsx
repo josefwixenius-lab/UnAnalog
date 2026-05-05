@@ -5,10 +5,12 @@ import type {
   LfoRate,
   LfoShape,
   LfoTarget,
+  ReverbType,
   TrackFx,
   TrackLfo,
   VoiceKind,
 } from '../engine/types';
+import { REVERB_LABELS, REVERB_TYPES } from '../engine/audioBus';
 
 type SidechainSource = {
   id: string;
@@ -431,8 +433,20 @@ export function Tools({
         const delayTime: DelaySubdivision = fx.delayTime ?? '8n';
         const delayFb = fx.delayFeedback ?? 0.35;
         const delayMode: DelayMode = fx.delayMode ?? 'pingpong';
-        const reverbShort = fx.reverbShort ?? 0;
-        const reverbLong = fx.reverbLong ?? fx.reverb;
+        // Reverb: nya fälten har företräde. Om bara legacy-fälten finns
+        // härleds typ + send därifrån (long → hall, short → plate).
+        let reverbType: ReverbType = fx.reverbType ?? 'hall';
+        let reverbSend = fx.reverbSend;
+        if (reverbSend === undefined) {
+          const legacyLong = fx.reverbLong ?? fx.reverb;
+          const legacyShort = fx.reverbShort ?? 0;
+          if (legacyShort > legacyLong) {
+            reverbType = 'plate';
+            reverbSend = legacyShort;
+          } else {
+            reverbSend = legacyLong;
+          }
+        }
         const reverbPreDelay = fx.reverbPreDelay ?? 0;
         const chorus = fx.chorus ?? 0;
         const chorusRate = fx.chorusRate ?? 1.5;
@@ -440,8 +454,7 @@ export function Tools({
         const crusher = fx.bitcrusher ?? 0;
         const allDry =
           delayMix === 0 &&
-          reverbShort === 0 &&
-          reverbLong === 0 &&
+          reverbSend === 0 &&
           fx.saturation === 0 &&
           chorus === 0 &&
           crusher === 0;
@@ -513,31 +526,50 @@ export function Tools({
             {/* === Reverb-grupp === */}
             <div className="field-row field-row--fx">
               <span className="group__label">Reverb</span>
-              <label className="field" title="Send till kort reverb (~1.2 s). Bra för leads och plate-känsla.">
-                <span>Short {Math.round(reverbShort * 100)}%</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.02}
-                  value={reverbShort}
-                  onChange={(e) => onChangeFx({ reverbShort: Number(e.target.value) })}
-                />
+              <label
+                className="field"
+                title={`Reverb-karaktär: ${REVERB_LABELS[reverbType].hint}`}
+              >
+                <span>Typ</span>
+                <select
+                  value={reverbType}
+                  onChange={(e) =>
+                    onChangeFx({
+                      reverbType: e.target.value as ReverbType,
+                      // Säkerställ att send-värdet finns när användaren väljer
+                      // typ utan att ha rört mängd-slidern först — annars
+                      // hamnar man i ett "typ vald men 0 wet"-läge som är
+                      // förvirrande.
+                      reverbSend: reverbSend === 0 ? 0.25 : reverbSend,
+                    })
+                  }
+                >
+                  {REVERB_TYPES.map((t) => (
+                    <option key={t} value={t} title={REVERB_LABELS[t].hint}>
+                      {REVERB_LABELS[t].label}
+                    </option>
+                  ))}
+                </select>
               </label>
-              <label className="field" title="Send till lång reverb (~6.5 s). Synthwave-pad-svans, FM-84-territory.">
-                <span>Long {Math.round(reverbLong * 100)}%</span>
+              <label
+                className="field"
+                title={`Mängd reverb. ${REVERB_LABELS[reverbType].hint}`}
+              >
+                <span>Mängd {Math.round(reverbSend * 100)}%</span>
                 <input
                   type="range"
                   min={0}
                   max={1}
                   step={0.02}
-                  value={reverbLong}
-                  onChange={(e) => onChangeFx({ reverbLong: Number(e.target.value) })}
+                  value={reverbSend}
+                  onChange={(e) =>
+                    onChangeFx({ reverbSend: Number(e.target.value) })
+                  }
                 />
               </label>
               <label
                 className="field"
-                title="Pre-delay: kort tystnad mellan transient och reverb-svans. 0 = svansen börjar direkt (mosigt), 30–80 ms = transient hörs ren först (pro-känsla). Gäller båda Short och Long."
+                title="Pre-delay: kort tystnad mellan transient och reverb-svans. 0 = svansen börjar direkt (mosigt), 30–80 ms = transient hörs ren först (pro-känsla)."
               >
                 <span>Pre {Math.round(reverbPreDelay * 1000)} ms</span>
                 <input
@@ -549,7 +581,7 @@ export function Tools({
                   onChange={(e) =>
                     onChangeFx({ reverbPreDelay: Number(e.target.value) })
                   }
-                  disabled={reverbShort === 0 && reverbLong === 0}
+                  disabled={reverbSend === 0}
                 />
               </label>
             </div>
@@ -639,6 +671,7 @@ export function Tools({
                     reverb: 0,
                     reverbShort: 0,
                     reverbLong: 0,
+                    reverbSend: 0,
                     saturation: 0,
                     chorus: 0,
                     bitcrusher: 0,

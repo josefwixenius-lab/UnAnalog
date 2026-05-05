@@ -21,12 +21,34 @@ function migrateTrack(t: Track): Track {
           shape: t.lfo.shape ?? 'sine',
         }
       : { target: 'off', rate: '4n', depth: 0.3, shape: 'sine' };
+  // Migrera reverb-fälten från legacy reverbShort/reverbLong till nya
+  // reverbType + reverbSend. Större send "vinner" och dikterar typen:
+  // long > short → hall (klassisk lång svans), annars plate.
+  const fxRaw = t.fx as Partial<TrackFx> | undefined;
+  let reverbType = fxRaw?.reverbType;
+  let reverbSend = fxRaw?.reverbSend;
+  if (reverbSend === undefined && fxRaw) {
+    const legacyLong = fxRaw.reverbLong ?? fxRaw.reverb ?? 0;
+    const legacyShort = fxRaw.reverbShort ?? 0;
+    if (legacyShort > 0 || legacyLong > 0) {
+      if (legacyShort > legacyLong) {
+        reverbType = reverbType ?? 'plate';
+        reverbSend = legacyShort;
+      } else {
+        reverbType = reverbType ?? 'hall';
+        reverbSend = legacyLong;
+      }
+    }
+  }
   const fx: TrackFx =
-    t.fx && typeof t.fx === 'object'
+    fxRaw && typeof fxRaw === 'object'
       ? {
-          delay: typeof t.fx.delay === 'number' ? t.fx.delay : 0,
-          reverb: typeof t.fx.reverb === 'number' ? t.fx.reverb : 0,
-          saturation: typeof t.fx.saturation === 'number' ? t.fx.saturation : 0,
+          ...fxRaw,
+          delay: typeof fxRaw.delay === 'number' ? fxRaw.delay : 0,
+          reverb: typeof fxRaw.reverb === 'number' ? fxRaw.reverb : 0,
+          saturation: typeof fxRaw.saturation === 'number' ? fxRaw.saturation : 0,
+          ...(reverbType !== undefined ? { reverbType } : {}),
+          ...(reverbSend !== undefined ? { reverbSend } : {}),
         }
       : { delay: 0, reverb: 0, saturation: 0 };
   return {

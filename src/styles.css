@@ -904,7 +904,8 @@ body {
   border-color: var(--accent);
 }
 
-.bank__midi-bars {
+.bank__midi-bars,
+.bank__bars {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -913,7 +914,8 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-.bank__midi-bars select {
+.bank__midi-bars select,
+.bank__bars select {
   background: var(--bg-cell);
   color: var(--text);
   border: 1px solid var(--border);
@@ -931,6 +933,168 @@ body {
 .chip--midi:hover {
   border-color: var(--accent-2);
   color: var(--accent-2);
+}
+.chip--wav {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-cell));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--text);
+}
+.chip--wav:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.chip--wav:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+.chip__sub {
+  margin-left: 4px;
+  opacity: 0.7;
+  font-size: 0.85em;
+}
+
+/* MIDI-spår-urval (collapsible) */
+.bank__midi-tracks {
+  margin-top: 8px;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.bank__midi-tracks > summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 0;
+}
+.bank__midi-tracks[open] > summary {
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.bank__midi-trackgrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+}
+.bank__midi-trackitem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-cell);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.bank__midi-trackitem input[type='checkbox'] {
+  margin: 0;
+}
+
+/* Morf A→B */
+.bank__morph {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+}
+.bank__morph .field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bank__morph .field span {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+.bank__morph select {
+  background: var(--bg-cell);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+.chip--morph {
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg-cell));
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  color: var(--text);
+}
+.chip--morph:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.bank__morph-progress {
+  flex: 1 1 100%;
+  height: 6px;
+  background: var(--bg-cell);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bank__morph-progress-bar {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--accent-2) 0%,
+    var(--accent) 100%
+  );
+  transition: width 0.3s ease-out;
+}
+.bank__slot.is-morph-from .bank__slot-label {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent-2) 70%, transparent);
+}
+.bank__slot.is-morph-to .bank__slot-label {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* PitchInput-komponenten — klickbar/dragbar tonnamn-tag */
+.pitch-input {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  cursor: ns-resize;
+  user-select: none;
+  touch-action: none;
+  padding: 1px 4px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+.pitch-input:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+.pitch-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.pitch-input.is-out-of-scale {
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
+}
+.pitch-input__off {
+  font-size: 0.7em;
+  opacity: 0.85;
+  margin-left: 1px;
+}
+.pitch-input--editing {
+  width: 5em;
+  font: inherit;
+  background: var(--bg-cell);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 1px 4px;
+  text-align: center;
 }
 
 .step.is-nudged {

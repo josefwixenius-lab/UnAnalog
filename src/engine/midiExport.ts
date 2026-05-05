@@ -24,6 +24,12 @@ export type MidiExportOptions = {
    * villkoren utifrån cycle-count från takt 0.
    */
   randomize?: boolean;
+  /**
+   * Filtrera till specifika spår (track-id). Tom/utelämnad = alla spår.
+   * Användbart när man bara vill exportera lead till en separat synth utan
+   * att ta med trummor/bass.
+   */
+  trackIds?: string[];
 };
 
 const STEPS_PER_BAR = 16;
@@ -133,7 +139,11 @@ function renderTrack(
       if (condPass && probPass) {
         fired = true;
         const allNotes = [
-          { scaleDegree: pitch.scaleDegree, octaveOffset: pitch.octaveOffset },
+          {
+            scaleDegree: pitch.scaleDegree,
+            octaveOffset: pitch.octaveOffset,
+            semitoneOffset: pitch.semitoneOffset ?? 0,
+          },
           ...(pitch.extraNotes ?? []),
         ];
         const midis = allNotes.map((n) =>
@@ -143,6 +153,7 @@ function renderTrack(
             pattern.scale,
             n.scaleDegree,
             n.octaveOffset,
+            n.semitoneOffset ?? 0,
           ),
         );
 
@@ -208,7 +219,13 @@ export function exportPatternToMidi(
 
   const ppq = midi.header.ppq;
 
-  for (const track of pattern.tracks) {
+  const idFilter = options.trackIds && options.trackIds.length > 0
+    ? new Set(options.trackIds)
+    : null;
+  const tracksToExport = idFilter
+    ? pattern.tracks.filter((t) => idFilter.has(t.id))
+    : pattern.tracks;
+  for (const track of tracksToExport) {
     const mt = midi.addTrack();
     renderTrack(mt, track, pattern, ppq, bars, randomize);
   }
