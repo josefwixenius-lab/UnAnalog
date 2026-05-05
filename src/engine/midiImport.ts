@@ -114,6 +114,8 @@ export function importTrackToActive(
     pitchSteps.push({
       scaleDegree: primaryDeg.scaleDegree,
       octaveOffset: primaryDeg.octaveOffset,
+      semitoneOffset:
+        primaryDeg.semitoneOffset !== 0 ? primaryDeg.semitoneOffset : undefined,
       slide: false,
       extraNotes: extras.length > 0 ? extras : undefined,
     });

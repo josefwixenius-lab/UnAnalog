@@ -9,9 +9,14 @@ En webbaserad step-sequencer inspirerad av Elektron-tänkandet: varje spår har 
 - 🎹 Pitch- och gate-spår med individuella längder (polymeter)
 - 🎛 Per-steg parametrar à la Elektron: gate, ratchet, accent, probability, villkor, velocity, filter-lock, nudge
 - 🎵 Scale-aware — byt tonart eller skala när som helst, mönstret följer med
+- ⌨️ Klick/drag/tangent-input på pitch-step (skriv "C3" eller "1–7", dra för skalsteg, Shift+dra för kromatisk out-of-scale)
+- 🎚 Sex inbyggda voices: Bass, Lead, Pad, Saw, Hats, **PWM** (drömlik puls-bredds-modulation)
+- 🌫 Fyra reverb-typer per spår: **Hall / Plate / Spring / Shimmer** (shimmer = +12 pitchshift i feedback-loop)
 - 🎼 Ackord-input via MIDI-keyboard (med arp-riktningar)
 - 🎹 Ton-för-ton-inspelning (melodier i valfri ordning)
-- 🔀 MIDI-import av .mid-filer
+- 🔀 MIDI-import av .mid-filer + MIDI-export med spår-urval
+- 🔊 **WAV-export** med full FX-kedja (offline-rendering via Tone.js)
+- 🌗 **Pattern-morphing A→B** — interpolera mellan två slots över N takter
 - 💾 8 pattern-slots med song chain, autosave i webbläsaren
 - 📤 Export/import av hela banken som JSON med valbart filnamn
 - 🔌 MIDI ut till Logic / hårdvara, flera kanaler samtidigt

@@ -1,36 +1,141 @@
 import * as Tone from 'tone';
-import type { DelayMode, DelaySubdivision, TrackFx } from './types';
+import type { DelayMode, DelaySubdivision, ReverbType, TrackFx } from './types';
 
 /**
  * Gemensam master-buss med limiter så det aldrig clippar, oavsett hur många
  * spår som spelar samtidigt eller vilka per-spår volymer användaren ställt in.
  *
  * Signalväg per spår:
- *   voice → input → panner → ┬→ dry ──────────────────────────→ master
- *                            ├→ delay (per-spår-instans, FB+tid) → master
- *                            ├→ reverbShortSend → sharedShortReverb → master
- *                            ├→ reverbLongSend  → sharedLongReverb  → master
- *                            ├→ saturation (parallell) ───────────→ master
- *                            ├→ chorus (per-spår, wet-only) ──────→ master
- *                            └→ bitcrusher (per-spår, wet-only) ──→ master
+ *   voice → input → duck → panner → ┬→ dry ────────────────────────→ master
+ *                                   ├→ delay (per-spår-instans) ────→ master
+ *                                   ├→ reverbSend → vald typ ───────→ master
+ *                                   │   (hall | plate | spring | shimmer)
+ *                                   ├→ saturation (parallell) ──────→ master
+ *                                   ├→ chorus (per-spår, wet-only) ─→ master
+ *                                   └→ bitcrusher (per-spår, wet-only) → master
  *
  * Designval kring resurser:
- * - Reverb är dyrt (genererar IR async) → vi har TVÅ globala instanser:
- *   en kort (~1.2 s) och en lång (~6.5 s). Användaren kan blanda send-nivåer
- *   per spår. Det ger 90 % av flexibiliteten i per-spår-reverb till en bråkdel
- *   av CPU- och laddtidskostnaden.
+ * - Reverb är dyrt (genererar IR async) → vi har FYRA globala instanser,
+ *   en per typ. Spåret väljer typ + send-nivå. Det ger 90 % av flexibiliteten
+ *   i per-spår-reverb till bråkdelen av CPU/minnes-kostnaden av per-spår-IR.
+ * - Shimmer:n är en hall-reverb med en pitchshift-+12 i feedback-loopen — den
+ *   tinglande kvalitén kommer från att svansens högfrekvenser hela tiden
+ *   transponeras upp en oktav.
  * - Delay däremot är billigt — varje spår får egen instans så feedback,
  *   tid och tape-mode kan variera fritt utan att skapa korsfeedback mellan spår.
- * - Chorus och bitcrusher är också per-spår eftersom de är cheap och vi vill
- *   ha unika sound per voice (chorus på lead, bitcrusher på drums osv).
  */
+
+export const REVERB_TYPES: ReverbType[] = ['hall', 'plate', 'spring', 'shimmer'];
+
+/** Visningsnamn + kort beskrivning för reverb-typ-väljaren i UI:t. */
+export const REVERB_LABELS: Record<ReverbType, { label: string; hint: string }> = {
+  hall: { label: 'Hall', hint: 'Lång varm konsertsal · 5.5 s' },
+  plate: { label: 'Plate', hint: 'Ljus EMT-känsla · 2.2 s' },
+  spring: { label: 'Spring', hint: 'Twangy fjäder · 0.9 s' },
+  shimmer: { label: 'Shimmer', hint: '+12 i feedback · 7 s · pad-magi' },
+};
+
+type ReverbBus = {
+  type: ReverbType;
+  input: Tone.Gain;
+  output: Tone.Gain;
+};
+
+/**
+ * BusContext är en samling av master + 4 reverb-bussar bundna till en
+ * specifik Tone-AudioContext. Live-läget använder en singleton (skapad i
+ * AudioContext.default), medan WAV-export-renderingen skapar en ny instans
+ * inne i `Tone.Offline()`-callbacken.
+ */
+export type BusContext = {
+  masterInput: Tone.InputNode;
+  /** Mottagare för reverb-sends per typ. */
+  reverbInputFor(type: ReverbType): Tone.InputNode;
+};
 
 let initialized = false;
 let masterInput: Tone.Gain | null = null;
 let masterVolume: Tone.Volume | null = null;
 let limiter: Tone.Limiter | null = null;
-let sharedShortReverb: Tone.Reverb | null = null;
-let sharedLongReverb: Tone.Reverb | null = null;
+const reverbBuses: Record<ReverbType, ReverbBus | null> = {
+  hall: null,
+  plate: null,
+  spring: null,
+  shimmer: null,
+};
+
+/** Bygg en hall-reverb (lång, varm konsertsalsklang). */
+function buildHall(masterDest: Tone.InputNode): ReverbBus {
+  const input = new Tone.Gain(1);
+  const output = new Tone.Gain(1);
+  const rev = new Tone.Reverb({ decay: 5.5, preDelay: 0.025, wet: 1 });
+  void rev.generate();
+  input.connect(rev);
+  rev.connect(output);
+  output.connect(masterDest);
+  return { type: 'hall', input, output };
+}
+
+/** Plate: ljusare, snabbare attack — drum-rooms, lead-färg, klassisk EMT-känsla. */
+function buildPlate(masterDest: Tone.InputNode): ReverbBus {
+  const input = new Tone.Gain(1);
+  const output = new Tone.Gain(1);
+  const rev = new Tone.Reverb({ decay: 2.2, preDelay: 0.008, wet: 1 });
+  void rev.generate();
+  // Lite high-shelf-boost ger plate:n det där "metalliska skimmeret".
+  const tone = new Tone.EQ3({ low: -2, mid: 0, high: 4 });
+  input.connect(rev);
+  rev.connect(tone);
+  tone.connect(output);
+  output.connect(masterDest);
+  return { type: 'plate', input, output };
+}
+
+/** Spring: kort + tunn med en metallisk resonans i mellanregistret. */
+function buildSpring(masterDest: Tone.InputNode): ReverbBus {
+  const input = new Tone.Gain(1);
+  const output = new Tone.Gain(1);
+  const rev = new Tone.Reverb({ decay: 0.9, preDelay: 0.005, wet: 1 });
+  void rev.generate();
+  // Twangy resonans-peak runt 1.2 kHz + lågpass på topp så det inte blir grellt.
+  const peak = new Tone.Filter({ type: 'peaking', frequency: 1200, Q: 4, gain: 9 });
+  const lp = new Tone.Filter({ type: 'lowpass', frequency: 5500, Q: 0.7 });
+  input.connect(rev);
+  rev.connect(peak);
+  peak.connect(lp);
+  lp.connect(output);
+  output.connect(masterDest);
+  return { type: 'spring', input, output };
+}
+
+/**
+ * Shimmer: hall-svans med +12 halvtoner pitchshift i feedback-loop. När
+ * loop-gainen är moderat (0.35–0.5) får man den klassiska "molnet av
+ * kornpartiklar som stiger" — bra på pad och atmosfärer.
+ */
+function buildShimmer(masterDest: Tone.InputNode): ReverbBus {
+  const input = new Tone.Gain(1);
+  const output = new Tone.Gain(1);
+  const rev = new Tone.Reverb({ decay: 7, preDelay: 0.04, wet: 1 });
+  void rev.generate();
+  // PitchShift +12 = en oktav upp. Tone.PitchShift använder granular SOLA-
+  // algoritm som klingar lite digitalt — perfekt för shimmer.
+  const shifter = new Tone.PitchShift({ pitch: 12, windowSize: 0.08, feedback: 0 });
+  const feedbackGain = new Tone.Gain(0.4);
+  // Lite high-pass på feedback så de låga frekvenserna inte byggs upp till mosig dröning
+  const fbHpf = new Tone.Filter({ type: 'highpass', frequency: 600, Q: 0.7 });
+
+  input.connect(rev);
+  rev.connect(output);
+  rev.connect(shifter);
+  shifter.connect(fbHpf);
+  fbHpf.connect(feedbackGain);
+  // Loopen tillbaka till input — det är HÄR shimmern föds. Utan denna
+  // återkoppling låter det bara som en oktavhöjd hall-svans.
+  feedbackGain.connect(input);
+  output.connect(masterDest);
+  return { type: 'shimmer', input, output };
+}
 
 function ensureInit() {
   if (initialized) return;
@@ -39,25 +144,74 @@ function ensureInit() {
   masterVolume = new Tone.Volume(0);
   limiter = new Tone.Limiter(-0.5);
 
-  // Två globala reverb-instanser. Decay-tid + preDelay valda för att täcka
-  // syntwave-spektrumet: kort = "rum/plate-känsla för leads", lång =
-  // "snöig pad-svans, FM-84-territory".
-  sharedShortReverb = new Tone.Reverb({ decay: 1.2, preDelay: 0.01, wet: 1 });
-  sharedLongReverb = new Tone.Reverb({ decay: 6.5, preDelay: 0.04, wet: 1 });
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises
-  sharedShortReverb.generate();
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises
-  sharedLongReverb.generate();
-
   // Master-summering
   masterInput.connect(masterVolume);
   masterVolume.connect(limiter);
   limiter.toDestination();
 
-  // Reverb-svansarna går in före limitern (post-limiter skulle låta reverb
-  // klippa helt självt vid hög wet)
-  sharedShortReverb.connect(masterVolume);
-  sharedLongReverb.connect(masterVolume);
+  // Bygg alla fyra reverb-typer. Reverb-svansarna går in före limitern
+  // (post-limiter skulle låta reverb klippa helt självt vid hög wet).
+  reverbBuses.hall = buildHall(masterVolume);
+  reverbBuses.plate = buildPlate(masterVolume);
+  reverbBuses.spring = buildSpring(masterVolume);
+  reverbBuses.shimmer = buildShimmer(masterVolume);
+}
+
+/** Internt: hämta reverb-bussens input-node för en given typ (live-singleton). */
+function reverbInputFor(type: ReverbType): Tone.InputNode {
+  ensureInit();
+  return reverbBuses[type]!.input;
+}
+
+/**
+ * Bygger en helt ny bus-instans i den aktuella Tone-kontexten och routar
+ * masterns output till `finalDest`. Används av WAV-export inne i
+ * Tone.Offline-callbacken där den globala singletonen inte finns.
+ *
+ * Returnerar både BusContext (för TrackFxChain) och de underliggande noderna
+ * så anroparen kan dispose:a dem efter att rendrering är klar.
+ */
+export function createOfflineBus(finalDest: Tone.InputNode): {
+  ctx: BusContext;
+  dispose(): void;
+} {
+  const offlineMasterInput = new Tone.Gain(1);
+  const offlineMasterVolume = new Tone.Volume(0);
+  const offlineLimiter = new Tone.Limiter(-0.5);
+  offlineMasterInput.connect(offlineMasterVolume);
+  offlineMasterVolume.connect(offlineLimiter);
+  offlineLimiter.connect(finalDest);
+
+  // Reverb-bussar går in före limitern så svansen begränsas tillsammans
+  // med torrsignalen — annars kan en hög wet låta reverb klippa solo.
+  const offlineBuses: Record<ReverbType, ReverbBus> = {
+    hall: buildHall(offlineMasterVolume),
+    plate: buildPlate(offlineMasterVolume),
+    spring: buildSpring(offlineMasterVolume),
+    shimmer: buildShimmer(offlineMasterVolume),
+  };
+
+  return {
+    ctx: {
+      masterInput: offlineMasterInput,
+      reverbInputFor: (type) => offlineBuses[type].input,
+    },
+    dispose() {
+      // Nedstigande dispose — viktigt så ToneAudioContext stänger korrekt.
+      offlineLimiter.disconnect();
+      offlineMasterVolume.disconnect();
+      offlineMasterInput.disconnect();
+      offlineLimiter.dispose();
+      offlineMasterVolume.dispose();
+      offlineMasterInput.dispose();
+      for (const type of REVERB_TYPES) {
+        offlineBuses[type].input.disconnect();
+        offlineBuses[type].output.disconnect();
+        offlineBuses[type].input.dispose();
+        offlineBuses[type].output.dispose();
+      }
+    },
+  };
 }
 
 export function getMasterInput(): Tone.InputNode {
@@ -194,16 +348,12 @@ export class TrackFxChain {
   // Delay
   private delaySend: Tone.Gain;
   private delayUnit: DelayUnit;
-  // Reverb
-  private reverbShortSend: Tone.Gain;
-  private reverbLongSend: Tone.Gain;
-  /**
-   * Pre-delay-noder mellan reverb-send och globala reverb. Båda styrs av
-   * samma `fx.reverbPreDelay` så användaren har EN slider att tänka på.
-   * 0–0.15 s. Default 0 = transparent (signal går rakt igenom).
-   */
-  private reverbShortPreDelay: Tone.Delay;
-  private reverbLongPreDelay: Tone.Delay;
+  // Reverb — en send + pre-delay + en typ-router-gain per typ. När typ ändras
+  // sätts den valda gainen till 1 och övriga till 0 (smooth ramp), vilket
+  // undviker discontinuities/clicks och låter pågående svansar dö ut naturligt.
+  private reverbSend: Tone.Gain;
+  private reverbPreDelay: Tone.Delay;
+  private reverbTypeGains: Record<ReverbType, Tone.Gain>;
   // Saturation
   private satSend: Tone.Gain;
   private saturation: Tone.Distortion;
@@ -215,20 +365,38 @@ export class TrackFxChain {
   private crusher: Tone.BitCrusher;
   private disposed = false;
 
-  constructor(initial: TrackFx) {
-    ensureInit();
+  /**
+   * @param initial Initiala FX-värden (kopieras direkt till noderna via setFx)
+   * @param bus     Valfri BusContext — anges för WAV-offline-rendering.
+   *                Default = singleton-buss (live-läget).
+   */
+  constructor(initial: TrackFx, bus?: BusContext) {
+    let masterDest: Tone.InputNode;
+    let getReverbInput: (type: ReverbType) => Tone.InputNode;
+    if (bus) {
+      masterDest = bus.masterInput;
+      getReverbInput = bus.reverbInputFor;
+    } else {
+      ensureInit();
+      masterDest = masterInput!;
+      getReverbInput = reverbInputFor;
+    }
     this.input = new Tone.Gain(1);
     this.duckGain = new Tone.Gain(1);
     this.panner = new Tone.Panner(0);
     this.drySend = new Tone.Gain(1);
 
     this.delaySend = new Tone.Gain(0);
-    this.delayUnit = new DelayUnit('pingpong', '8n', 0.35, masterInput!);
+    this.delayUnit = new DelayUnit('pingpong', '8n', 0.35, masterDest);
 
-    this.reverbShortSend = new Tone.Gain(0);
-    this.reverbLongSend = new Tone.Gain(0);
-    this.reverbShortPreDelay = new Tone.Delay({ delayTime: 0, maxDelay: 0.2 });
-    this.reverbLongPreDelay = new Tone.Delay({ delayTime: 0, maxDelay: 0.2 });
+    this.reverbSend = new Tone.Gain(0);
+    this.reverbPreDelay = new Tone.Delay({ delayTime: 0, maxDelay: 0.2 });
+    this.reverbTypeGains = {
+      hall: new Tone.Gain(0),
+      plate: new Tone.Gain(0),
+      spring: new Tone.Gain(0),
+      shimmer: new Tone.Gain(0),
+    };
 
     this.satSend = new Tone.Gain(0);
     this.saturation = new Tone.Distortion({ distortion: 0.4, oversample: '2x', wet: 1 });
@@ -254,30 +422,30 @@ export class TrackFxChain {
     this.duckGain.connect(this.panner);
     this.panner.connect(this.drySend);
     this.panner.connect(this.delaySend);
-    this.panner.connect(this.reverbShortSend);
-    this.panner.connect(this.reverbLongSend);
+    this.panner.connect(this.reverbSend);
     this.panner.connect(this.satSend);
     this.panner.connect(this.chorusSend);
     this.panner.connect(this.crusherSend);
 
     // Dry + parallell-effekter → master
-    this.drySend.connect(masterInput!);
+    this.drySend.connect(masterDest);
     this.satSend.connect(this.saturation);
-    this.saturation.connect(masterInput!);
+    this.saturation.connect(masterDest);
     this.chorusSend.connect(this.chorus);
-    this.chorus.connect(masterInput!);
+    this.chorus.connect(masterDest);
     this.crusherSend.connect(this.crusher);
-    this.crusher.connect(masterInput!);
+    this.crusher.connect(masterDest);
 
-    // Delay routas via DelayUnit (output redan kopplad till masterInput)
+    // Delay routas via DelayUnit (output redan kopplad till masterDest)
     this.delaySend.connect(this.delayUnit.getInput());
 
-    // Reverb-sends → pre-delay → globala reverbs. Pre-delay default 0
-    // gör kedjan transparent tills användaren skruvar upp.
-    this.reverbShortSend.connect(this.reverbShortPreDelay);
-    this.reverbShortPreDelay.connect(sharedShortReverb!);
-    this.reverbLongSend.connect(this.reverbLongPreDelay);
-    this.reverbLongPreDelay.connect(sharedLongReverb!);
+    // Reverb-routing: send → pre-delay → 4 type-router-gains → respektive bus.
+    // Bara den valda typens gain är på 1; övriga på 0. setFx() byter ramp.
+    this.reverbSend.connect(this.reverbPreDelay);
+    for (const type of REVERB_TYPES) {
+      this.reverbPreDelay.connect(this.reverbTypeGains[type]);
+      this.reverbTypeGains[type].connect(getReverbInput(type));
+    }
 
     this.setFx(initial);
   }
@@ -332,8 +500,23 @@ export class TrackFxChain {
     const delayTime = fx.delayTime ?? '8n';
     const delayFeedback = Math.max(0, Math.min(0.95, fx.delayFeedback ?? 0.35));
     const delayMode = fx.delayMode ?? 'pingpong';
-    const reverbShort = clamp01(fx.reverbShort ?? 0);
-    const reverbLong = clamp01(fx.reverbLong ?? fx.reverb);
+    // Reverb: nya fälten har företräde. Legacy reverbLong/Short används som
+    // fallback om reverbSend saknas — då migrerar vi även till en typ
+    // (long → hall, short → plate). bank.ts:migrateTrack gör samma sak vid
+    // ladda så detta är bara en safety-net för in-flight-värden.
+    let reverbType: ReverbType = fx.reverbType ?? 'hall';
+    let reverbSend = fx.reverbSend;
+    if (reverbSend === undefined) {
+      const legacyLong = fx.reverbLong ?? fx.reverb;
+      const legacyShort = fx.reverbShort ?? 0;
+      if (legacyShort > legacyLong) {
+        reverbType = 'plate';
+        reverbSend = legacyShort;
+      } else {
+        reverbSend = legacyLong;
+      }
+    }
+    reverbSend = clamp01(reverbSend);
     const reverbPreDelay = Math.max(0, Math.min(0.15, fx.reverbPreDelay ?? 0));
     const sat = clamp01(fx.saturation);
     const chorus = clamp01(fx.chorus ?? 0);
@@ -345,8 +528,16 @@ export class TrackFxChain {
     // hörs tydligare — men chorus stör inte dry, den fyller på i bredden
     this.drySend.gain.value = 1 - sat * 0.35 - crusher * 0.5;
     this.delaySend.gain.value = delayMix * 0.85;
-    this.reverbShortSend.gain.value = reverbShort * 0.9;
-    this.reverbLongSend.gain.value = reverbLong * 0.9;
+    this.reverbSend.gain.value = reverbSend * 0.9;
+    // Type-router: ramp:a den valda typens gain till 1 och övriga till 0.
+    // Kort ramp (~0.05 s) = ingen klick men inte heller hörbart smear vid byte.
+    const now = Tone.now();
+    for (const type of REVERB_TYPES) {
+      const target = type === reverbType ? 1 : 0;
+      const g = this.reverbTypeGains[type].gain;
+      g.cancelScheduledValues(now);
+      g.linearRampToValueAtTime(target, now + 0.05);
+    }
     this.satSend.gain.value = sat;
     this.chorusSend.gain.value = chorus;
     this.crusherSend.gain.value = crusher;
@@ -359,10 +550,8 @@ export class TrackFxChain {
     this.chorus.frequency.value = chorusRate;
     this.chorus.depth = chorusDepth;
 
-    // Reverb pre-delay: samma värde till båda sends så användaren bara
-    // tänker på en slider. Tone.Delay låter delayTime ändras live.
-    this.reverbShortPreDelay.delayTime.value = reverbPreDelay;
-    this.reverbLongPreDelay.delayTime.value = reverbPreDelay;
+    // Reverb pre-delay
+    this.reverbPreDelay.delayTime.value = reverbPreDelay;
 
     // Bitcrusher: bits 1–8 där 8 = nästan ren, 1 = total decimering. Mappa
     // wet 0–1 → bits 8 → 2 (1 låter för otäckt vid full mix).
@@ -381,8 +570,12 @@ export class TrackFxChain {
     this.panner.disconnect();
     this.drySend.disconnect();
     this.delaySend.disconnect();
-    this.reverbShortSend.disconnect();
-    this.reverbLongSend.disconnect();
+    this.reverbSend.disconnect();
+    this.reverbPreDelay.disconnect();
+    for (const type of REVERB_TYPES) {
+      this.reverbTypeGains[type].disconnect();
+      this.reverbTypeGains[type].dispose();
+    }
     this.satSend.disconnect();
     this.saturation.disconnect();
     this.chorusSend.disconnect();
@@ -393,8 +586,8 @@ export class TrackFxChain {
     this.panner.dispose();
     this.drySend.dispose();
     this.delaySend.dispose();
-    this.reverbShortSend.dispose();
-    this.reverbLongSend.dispose();
+    this.reverbSend.dispose();
+    this.reverbPreDelay.dispose();
     this.satSend.dispose();
     this.saturation.dispose();
     this.chorusSend.dispose();
@@ -403,9 +596,5 @@ export class TrackFxChain {
     this.crusher.dispose();
     this.delayUnit.dispose();
     this.duckGain.dispose();
-    this.reverbShortPreDelay.disconnect();
-    this.reverbLongPreDelay.disconnect();
-    this.reverbShortPreDelay.dispose();
-    this.reverbLongPreDelay.dispose();
   }
 }

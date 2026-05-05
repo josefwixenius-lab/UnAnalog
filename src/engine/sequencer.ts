@@ -384,7 +384,11 @@ export class Sequencer {
         if (condPass && probPass) {
           fired = true;
           const allNotes = [
-            { scaleDegree: pitch.scaleDegree, octaveOffset: pitch.octaveOffset },
+            {
+              scaleDegree: pitch.scaleDegree,
+              octaveOffset: pitch.octaveOffset,
+              semitoneOffset: pitch.semitoneOffset ?? 0,
+            },
             ...(pitch.extraNotes ?? []),
           ];
           const midis = allNotes.map((n) =>
@@ -394,6 +398,7 @@ export class Sequencer {
               p.scale,
               n.scaleDegree,
               n.octaveOffset,
+              n.semitoneOffset ?? 0,
             ),
           );
           // Roll = ratchet 4 (1/64 på 16-del-tick) oavsett vad gate.ratchet

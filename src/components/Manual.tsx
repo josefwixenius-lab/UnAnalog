@@ -242,8 +242,10 @@ export function Manual({ open, onClose }: Props) {
               <dd>Klicka för att byta. Bara kosmetiskt.</dd>
               <dt>Voice</dt>
               <dd>Inbyggd ljudkälla: <em>Bass</em> (monosyn), <em>Lead</em> (polysyn),{' '}
-                <em>Pluck</em>, <em>Kick</em>, <em>Hats</em> (brus-hihat). Voice styr både
-                ljudet och vilket MIDI-instrument som passar bäst.</dd>
+                <em>Pad</em>, <em>Saw</em>, <em>Hats</em> (brus-hihat),{' '}
+                <em>PWM</em> (puls-bredds-modulerad oscillator — drömlik Juno/Polysix-pad
+                där pulsbredden moduleras ~0.6 Hz). Voice styr både ljudet och vilket
+                MIDI-instrument som passar bäst.</dd>
               <dt>Mute (M) / Solo (S)</dt>
               <dd>Mute tystar spåret. Solo lyssnar bara på de spår som är solo:ade. Flera
                 spår kan vara solo samtidigt.</dd>
@@ -324,8 +326,16 @@ export function Manual({ open, onClose }: Props) {
             </p>
             <ul>
               <li>
-                <strong>Skalsteg</strong> — 1 är grundtonen, 2 är andra tonen i skalan osv.
-                Klicka och dra eller använd piltangenter.
+                <strong>Tonnamn-tag</strong> — visar klingande tonen (t.ex. "C3"). Klicka
+                för att skriva tonnamn ("C3", "F#4", "Bb2") eller skalsteg ("1"–"7"); dra
+                vertikalt för att stega upp/ner i skalan; <kbd>Shift</kbd>+dra för
+                kromatiskt steg utanför skalan. Out-of-scale-toner markeras med en liten{' '}
+                <code>*</code> och annan färg så det syns att det är ett aktivt val.
+                Pil-tangenter funkar när tag:en har fokus (Tab dit).
+              </li>
+              <li>
+                <strong>Skalsteg-dropdown</strong> — explicit numeriskt val 1..N (där N är
+                skalans längd). Att välja en siffra här återställer ev. kromatiskt offset.
               </li>
               <li>
                 <strong>Oktav-offset</strong> (−2 till +2) — lyfter enbart det här steget.
@@ -333,6 +343,7 @@ export function Manual({ open, onClose }: Props) {
               <li>
                 <strong>Ackord</strong> — klicka på "+"-knappen för att lägga till extra
                 toner på samma steg (t.ex. tersen och kvinten). Ackordet spelas samtidigt.
+                Varje extra-ton kan dras/skrivas på samma sätt som huvudtonen.
               </li>
               <li>
                 <strong>Glid (slide) + slide-tid</strong> — när slide är på exponeras en
@@ -342,6 +353,11 @@ export function Manual({ open, onClose }: Props) {
                 100 = full step-längd.
               </li>
             </ul>
+            <TipBox>
+              <strong>Out-of-scale-toner</strong> bevaras när du byter tonart eller skala —
+              det halv-tons-offset du valt följer med. Vill du tillbaka till ren skala-ton:
+              välj ett värde i Skalsteg-dropdownen igen, eller skriv "1"–"N" i tag:en.
+            </TipBox>
             <Example>
               Bygg ett klassiskt acid-arpeggio: ställ gate till 8 steg, pitch 1-1-5-1-3-1-8-1,
               ge stegen 3, 5 och 8 oktav +1. Sätt voice till "Bass". Lägg till slide på varje
@@ -495,17 +511,24 @@ export function Manual({ open, onClose }: Props) {
                 </ul>
               </dd>
 
-              <dt>Reverb — Short + Long sends</dt>
+              <dt>Reverb — Typ + Mängd + Pre</dt>
               <dd>
-                Två globala reverb-instanser som varje spår skickar till oberoende:
+                Per spår väljer du <strong>typ</strong>, <strong>mängd</strong> (send 0–100%)
+                och <strong>pre-delay</strong> (0–150 ms tystnad mellan transient och svans).
+                Fyra typer som var och en är en egen global instans:
                 <ul>
-                  <li><strong>Short</strong> (~1.2 s) — intim plate-känsla, bra för leads
-                    och attack-färg.</li>
-                  <li><strong>Long</strong> (~6.5 s) — synthwave-pad-svans i FM-84-territory.
-                    Lägg på pad-spåret + lite på lead för bakgrund.</li>
+                  <li><strong>Hall</strong> (~5.5 s) — varm konsertsal, klassisk lång svans.
+                    Pad och lead-bakgrund.</li>
+                  <li><strong>Plate</strong> (~2.2 s) — ljusare EMT-känsla med high-shelf-lyft.
+                    Drum-rooms, lead-färg, attack-glans.</li>
+                  <li><strong>Spring</strong> (~0.9 s) — kort + tunn med metallisk peak runt
+                    1.2 kHz. Surf-gitarr, spaghetti-western, vintage organ.</li>
+                  <li><strong>Shimmer</strong> (~7 s) — hall med <em>+12 halvtoner pitchshift
+                    i feedback-loop</em>. Det är HÄR padmagin föds: tonen blir ett moln av
+                    oktav-uppstigande korn. Använd försiktigt — full-mix låter lätt new-age.</li>
                 </ul>
-                Du kan blanda båda för komplexa rumsbilder — kort + lång samtidigt ger
-                "intimt med svans".
+                Pre-delay separerar transient från reverb-svans så ljudet känns mer "pro"
+                och mindre mosigt — 30–80 ms är synthwave-sweet-spot.
               </dd>
 
               <dt>Karaktär — Saturation / Chorus / Crush</dt>
@@ -525,11 +548,11 @@ export function Manual({ open, onClose }: Props) {
               <strong>🌆 Synthwave FX-recept:</strong>
               <ol>
                 <li>Bas: cutoff 35%, reso 30%, mono delay 15% @ 1/16, FB 40%, lite saturation 20%.</li>
-                <li>Lead: chorus 40%, short reverb 30%, ping-pong delay 25% @ 1/8., FB 45%.</li>
-                <li>Pad: long reverb 70%, chorus 60%, sidechain källa = bass-spåret, pump 55%, release 200 ms.</li>
-                <li>Hats: short reverb 15%, crush 30%, saturation 35%, hård panning ±60%.</li>
+                <li>Lead: chorus 40%, reverb Plate 30%, ping-pong delay 25% @ 1/8., FB 45%.</li>
+                <li>Pad: reverb Shimmer 60% + pre-delay 50 ms, chorus 60%, sidechain källa = bass-spåret, pump 55%, release 200 ms.</li>
+                <li>Hats: reverb Spring 15%, crush 30%, saturation 35%, hård panning ±60%.</li>
               </ol>
-              Kombinationen av sidechain, lång reverb och chorus ÄR synthwave-soundtracket.
+              Kombinationen av sidechain, shimmer-reverb och chorus ÄR synthwave-soundtracket.
             </TipBox>
           </section>
 
@@ -774,13 +797,49 @@ export function Manual({ open, onClose }: Props) {
               <dt>⬆ Import</dt>
               <dd>Välj en tidigare exporterad JSON. Gammal bank ersätts.</dd>
               <dt>🎹 MIDI (.mid)</dt>
-              <dd>Exporterar <em>bara aktiv slot</em> som standardiserad MIDI-fil (SMF Type 1).
+              <dd>Exporterar <em>aktiv slot</em> som standardiserad MIDI-fil (SMF Type 1).
                 Varje spår blir en egen MIDI-track med sin kanal, namn och noter. Filen kan
-                öppnas i Logic, Ableton, Cubase, FL Studio, Reaper osv.</dd>
+                öppnas i Logic, Ableton, Cubase, FL Studio, Reaper osv. Använd{' '}
+                <strong>"Spår-urval till MIDI-export"</strong>-sektionen nedanför knappraden
+                för att kryssa i/ur enskilda spår — t.ex. exportera bara lead till en
+                separat synth utan att ta med trummor och bass.</dd>
+              <dt>🔊 WAV (.wav)</dt>
+              <dd>Renderar aktiv slot till en stereo WAV-fil med <em>full FX-kedja</em> —
+                dvs. exakt det du hör live (alla reverb-typer, chorus, bitcrusher, sidechain,
+                pan, saturation). Renderingen sker offline (icke-realtid), så långa exporter
+                går snabbare än uppspelningstiden. Knappen visar <em>⌛ renderar…</em> medan
+                den jobbar; nedladdning startar automatiskt när det är klart. Default
+                sample-rate 44.1 kHz, 16-bit PCM.</dd>
               <dt>takter</dt>
-              <dd>Hur många takter som renderas i MIDI-filen (1–32). 4 takter räcker för en
-                loop; 16–32 för en genomspelning där villkoren (1:4, 2:3 osv.) hinner cykla.</dd>
+              <dd>Hur många takter som renderas i export-filerna (1–32). Värdet delas mellan
+                MIDI och WAV. 4 takter räcker för en loop; 16–32 för en genomspelning där
+                villkoren (1:4, 2:3 osv.) hinner cykla.</dd>
             </dl>
+
+            <h3>Pattern-morphing A→B</h3>
+            <p>
+              Längst ner i bank-panelen finns <strong>Morf A→B</strong>: välj källa-slot
+              (<em>från</em>), mål-slot (<em>till</em>), antal takter och tryck <kbd>▶ Starta
+              morf</kbd>. Sequencern interpolerar då gradvis från A mot B över de takter du
+              valt — pitch-stegen lerp:as ton-för-ton, gate-parametrarna (gate-längd, prob,
+              velocity, nudge) övergår smooth, och accent/active-toggles bytslår vid 50%
+              halvvägs. Tempo + swing morfas också. Vid morfens slut byter activeSlot till
+              <em> till</em>-slot:en och <em>från</em>-slot:en återställs så du har båda
+              originalen kvar.
+            </p>
+            <ul>
+              <li>Morfen körs som transient operation (inte i undo-historiken) — ingen
+                Cmd+Z-spam.</li>
+              <li>Slot-knapparna får en färgad ram under pågående morf så du ser källa
+                + mål.</li>
+              <li><kbd>⏹ Stoppa morf</kbd> avbryter direkt och återställer A.</li>
+            </ul>
+            <Example>
+              Bygg slot A som "intro" (glesa hihats, pad utan delay) och slot B som "drop"
+              (alla gates på, pad genom Shimmer-reverb 60%, sidechain pump 60%). Sätt morf
+              <em>A→B över 16 takter</em> och tryck Play + Starta morf. Låten bygger upp
+              sig själv från intro till drop.
+            </Example>
             <h3>MIDI-export: vad tas med?</h3>
             <ul>
               <li>Alla aktiva gate-steg, ratchet-retriggers, ackord-noter, nudge och velocity.</li>

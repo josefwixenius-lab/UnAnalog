@@ -55,6 +55,20 @@ type SynthParams = {
   detune?: number;
 };
 
+type PwmParams = {
+  /**
+   * Modulation-frekvens för pulsbredden i Hz. 0.2–2 = klassisk drönande
+   * Juno-pad. 0–0.1 = nästan stilla pulswave (mer som square-wave).
+   */
+  modulationFrequency: number;
+  attack: number;
+  decay: number;
+  sustain: number;
+  release: number;
+  filterFreq: number;
+  volumeDb: number;
+};
+
 class LfoRig {
   private lfo: Tone.LFO | null = null;
 
@@ -189,6 +203,123 @@ class SynthVoice implements Voice {
     this.filter.disconnect();
     this.filter.dispose();
     this.volume.disconnect();
+    this.volume.dispose();
+  }
+}
+
+/**
+ * PWM-voice. Bygger på Tone.PWMOscillator där pulsbredden moduleras av en
+ * intern LFO (modulationFrequency). 0.4–2 Hz = den klassiska drömska
+ * Juno/Polysix-padden; 0 Hz = nästan ren square (kan låta torrt).
+ *
+ * Implementerad som monofonisk wrapper med vår egen filter+volume+LFO-kedja
+ * istället för PolySynth — Tone.PolySynth har strul med PWMOscillator vid
+ * type-checking i v15 och vi vill ha full kontroll över envelopen ändå.
+ */
+class PwmVoice implements Voice {
+  private osc: Tone.PWMOscillator;
+  private env: Tone.AmplitudeEnvelope;
+  private filter: Tone.Filter;
+  private volume: Tone.Volume;
+  private baseDb: number;
+  private baseFilter: number;
+  private lfoRig: LfoRig;
+  private lastLfo: TrackLfo | null = null;
+  private currentDest: Tone.InputNode | null = null;
+  private isPlaying = false;
+
+  constructor(p: PwmParams) {
+    this.baseDb = p.volumeDb;
+    this.baseFilter = p.filterFreq;
+    this.osc = new Tone.PWMOscillator({
+      frequency: 440,
+      modulationFrequency: p.modulationFrequency,
+    });
+    this.env = new Tone.AmplitudeEnvelope({
+      attack: p.attack,
+      decay: p.decay,
+      sustain: p.sustain,
+      release: p.release,
+    });
+    this.filter = new Tone.Filter(p.filterFreq, 'lowpass');
+    this.volume = new Tone.Volume(this.baseDb);
+    this.osc.connect(this.env);
+    this.env.connect(this.filter);
+    this.filter.connect(this.volume);
+    this.osc.start();
+    this.lfoRig = new LfoRig(this.filter, this.volume, this.baseFilter);
+  }
+  connectOutput(dest: Tone.InputNode) {
+    if (this.currentDest === dest) return;
+    this.disconnectOutput();
+    this.volume.connect(dest);
+    this.currentDest = dest;
+  }
+  disconnectOutput() {
+    if (this.currentDest) {
+      try {
+        this.volume.disconnect(this.currentDest as Tone.ToneAudioNode);
+      } catch {
+        // ignore
+      }
+      this.currentDest = null;
+    }
+  }
+  trigger(
+    midi: number,
+    durationSec: number,
+    timeSec: number,
+    velocity: number,
+    opts?: TriggerOptions,
+  ) {
+    if (opts?.filterLock != null) {
+      const locked = computeLockedFreq(this.baseFilter, opts.filterLock, 8);
+      this.filter.frequency.cancelScheduledValues(timeSec);
+      this.filter.frequency.setValueAtTime(locked, timeSec);
+    }
+    // Sätt frekvens vid trigger-tiden så vi inte glider mellan steg
+    const freq = Tone.Frequency(midi, 'midi').toFrequency();
+    this.osc.frequency.setValueAtTime(freq, timeSec);
+    // Velocity skalas in i envelopens max — Tone.AmplitudeEnvelope har inget
+    // velocity-koncept, så vi modulerar volume kortvarigt via env-trigger.
+    // För enkelhet: full envelope-trigger; velocity hanteras via volume-pre-set.
+    // Inget perfekt men låter rimligt på en pad/lead.
+    const velDb = -24 * (1 - Math.max(0.05, Math.min(1, velocity)));
+    this.volume.volume.setValueAtTime(this.baseDb + velDb, timeSec);
+    this.env.triggerAttackRelease(durationSec, timeSec);
+    this.isPlaying = true;
+  }
+  setVolume(deltaDb: number) {
+    this.volume.volume.value = this.baseDb + deltaDb;
+  }
+  setLfo(lfo: TrackLfo) {
+    this.lastLfo = lfo;
+    this.lfoRig.apply(lfo);
+  }
+  setFilterBase(cutoff?: number | null, resonance?: number | null) {
+    if (cutoff != null) {
+      this.baseFilter = cutoffToHz(cutoff);
+      this.filter.frequency.value = this.baseFilter;
+      this.lfoRig.dispose();
+      this.lfoRig = new LfoRig(this.filter, this.volume, this.baseFilter);
+      if (this.lastLfo) this.lfoRig.apply(this.lastLfo);
+    }
+    if (resonance != null) {
+      this.filter.Q.value = resonanceToQ(resonance);
+    }
+  }
+  dispose() {
+    this.lfoRig.dispose();
+    this.disconnectOutput();
+    if (this.isPlaying) this.env.triggerRelease();
+    this.osc.stop();
+    this.osc.disconnect();
+    this.env.disconnect();
+    this.filter.disconnect();
+    this.volume.disconnect();
+    this.osc.dispose();
+    this.env.dispose();
+    this.filter.dispose();
     this.volume.dispose();
   }
 }
@@ -331,6 +462,17 @@ export function createVoice(kind: VoiceKind): Voice {
         filterType: 'lowpass',
         volumeDb: -10,
       });
+    case 'pwm':
+      return new PwmVoice({
+        // 0.6 Hz = klassisk drömlik wobble — varken aggressiv eller stillastående
+        modulationFrequency: 0.6,
+        attack: 0.04,
+        decay: 0.25,
+        sustain: 0.7,
+        release: 0.7,
+        filterFreq: 2800,
+        volumeDb: -10,
+      });
     case 'saw':
     default:
       return new SynthVoice({
@@ -352,4 +494,5 @@ export const VOICE_LABELS: Record<VoiceKind, string> = {
   hats: 'Hats',
   pad: 'Pad',
   saw: 'Saw',
+  pwm: 'PWM',
 };

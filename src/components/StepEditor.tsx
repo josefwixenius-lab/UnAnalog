@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { degreeToMidi, midiToName, scaleLength } from '../engine/scales';
+// degreeToMidi används bara för chord-extra-tonernas tooltip i CompositeSteps;
+// huvudtonens namn renderas av PitchInput-komponenten.
 import type {
   GateStep,
   Pattern,
@@ -10,6 +12,7 @@ import type {
 } from '../engine/types';
 import { PitchTrack } from './PitchTrack';
 import { GateTrack } from './GateTrack';
+import { PitchInput } from './PitchInput';
 
 type Props = {
   pattern: Pattern;
@@ -196,13 +199,6 @@ function CompositeSteps({
           const gatePlaying = i === gateCurrent;
           const playing = pitchPlaying || gatePlaying;
           const extras = p.extraNotes ?? [];
-          const midi = degreeToMidi(
-            pattern.rootNote,
-            pattern.baseOctave + track.octaveShift,
-            pattern.scale,
-            p.scaleDegree,
-            p.octaveOffset,
-          );
           const isNudged = (g.nudge ?? 0) !== 0;
           const nudgePct = Math.round((g.nudge ?? 0) * 100);
           const probPct = Math.round(g.probability * 100);
@@ -235,13 +231,34 @@ function CompositeSteps({
               }
             >
               {/* === Pitch-header === */}
-              <div className="composite-step__note" title={`${TT.note}\n${midiToName(midi)}`}>
-                {midiToName(midi)}
-              </div>
+              <PitchInput
+                className="composite-step__note"
+                value={{
+                  scaleDegree: p.scaleDegree,
+                  octaveOffset: p.octaveOffset,
+                  semitoneOffset: p.semitoneOffset,
+                }}
+                rootNote={pattern.rootNote}
+                baseOctave={pattern.baseOctave + track.octaveShift}
+                scale={pattern.scale}
+                title={TT.note}
+                onChange={(v) =>
+                  updatePitch(i, {
+                    scaleDegree: v.scaleDegree,
+                    octaveOffset: v.octaveOffset,
+                    semitoneOffset: v.semitoneOffset,
+                  })
+                }
+              />
               <select
                 className="composite-step__degree"
                 value={p.scaleDegree}
-                onChange={(e) => updatePitch(i, { scaleDegree: Number(e.target.value) })}
+                onChange={(e) =>
+                  updatePitch(i, {
+                    scaleDegree: Number(e.target.value),
+                    semitoneOffset: undefined,
+                  })
+                }
                 title={TT.degree}
               >
                 {Array.from({ length: len }, (_, d) => (
@@ -513,6 +530,7 @@ function CompositeSteps({
                           pattern.scale,
                           n.scaleDegree,
                           n.octaveOffset,
+                          n.semitoneOffset ?? 0,
                         );
                         return (
                           <div
@@ -520,21 +538,24 @@ function CompositeSteps({
                             className="composite-step__chord-note"
                             title={`Extra-ton: ${midiToName(extraMidi)}`}
                           >
-                            <select
-                              value={n.scaleDegree}
-                              onChange={(e) =>
-                                updateExtraNote(i, k, { scaleDegree: Number(e.target.value) })
+                            <PitchInput
+                              className="composite-step__chord-pitch"
+                              value={{
+                                scaleDegree: n.scaleDegree,
+                                octaveOffset: n.octaveOffset,
+                                semitoneOffset: n.semitoneOffset,
+                              }}
+                              rootNote={pattern.rootNote}
+                              baseOctave={pattern.baseOctave + track.octaveShift}
+                              scale={pattern.scale}
+                              onChange={(v) =>
+                                updateExtraNote(i, k, {
+                                  scaleDegree: v.scaleDegree,
+                                  octaveOffset: v.octaveOffset,
+                                  semitoneOffset: v.semitoneOffset,
+                                })
                               }
-                            >
-                              {Array.from({ length: len }, (_, d) => (
-                                <option key={d} value={d}>
-                                  {d + 1}
-                                </option>
-                              ))}
-                            </select>
-                            <span className="composite-step__chord-oct">
-                              {n.octaveOffset > 0 ? `+${n.octaveOffset}` : n.octaveOffset}
-                            </span>
+                            />
                             <button
                               className="tiny"
                               onClick={() => removeExtraNote(i, k)}

@@ -1,5 +1,6 @@
 import { degreeToMidi, midiToName, scaleLength } from '../engine/scales';
 import type { Pattern, PitchNote, PitchStep, Track } from '../engine/types';
+import { PitchInput } from './PitchInput';
 
 type Props = {
   pattern: Pattern;
@@ -66,13 +67,6 @@ export function PitchTrack({ pattern, track, currentStep, onChangeTrack }: Props
       </div>
       <div className="steps">
         {track.pitchSteps.map((s, i) => {
-          const midi = degreeToMidi(
-            pattern.rootNote,
-            pattern.baseOctave + track.octaveShift,
-            pattern.scale,
-            s.scaleDegree,
-            s.octaveOffset,
-          );
           const playing = i === currentStep;
           const extras = s.extraNotes ?? [];
           const isDrum = track.voice === 'hats';
@@ -81,11 +75,33 @@ export function PitchTrack({ pattern, track, currentStep, onChangeTrack }: Props
               key={i}
               className={`step step--pitch ${playing ? 'is-playing' : ''} ${extras.length > 0 ? 'has-chord' : ''}`}
             >
-              <div className="step__noteName">{midiToName(midi)}</div>
+              <PitchInput
+                className="step__noteName"
+                value={{
+                  scaleDegree: s.scaleDegree,
+                  octaveOffset: s.octaveOffset,
+                  semitoneOffset: s.semitoneOffset,
+                }}
+                rootNote={pattern.rootNote}
+                baseOctave={pattern.baseOctave + track.octaveShift}
+                scale={pattern.scale}
+                onChange={(v) =>
+                  updateStep(i, {
+                    scaleDegree: v.scaleDegree,
+                    octaveOffset: v.octaveOffset,
+                    semitoneOffset: v.semitoneOffset,
+                  })
+                }
+              />
               <select
                 className="step__degree"
                 value={s.scaleDegree}
-                onChange={(e) => updateStep(i, { scaleDegree: Number(e.target.value) })}
+                onChange={(e) =>
+                  updateStep(i, {
+                    scaleDegree: Number(e.target.value),
+                    semitoneOffset: undefined,
+                  })
+                }
                 title="Skalsteg"
               >
                 {Array.from({ length: len }, (_, d) => (
@@ -132,24 +148,27 @@ export function PitchTrack({ pattern, track, currentStep, onChangeTrack }: Props
                       pattern.scale,
                       n.scaleDegree,
                       n.octaveOffset,
+                      n.semitoneOffset ?? 0,
                     );
                     return (
                       <div key={k} className="step__chord-note" title={midiToName(extraMidi)}>
-                        <select
-                          value={n.scaleDegree}
-                          onChange={(e) =>
-                            updateExtraNote(i, k, { scaleDegree: Number(e.target.value) })
+                        <PitchInput
+                          value={{
+                            scaleDegree: n.scaleDegree,
+                            octaveOffset: n.octaveOffset,
+                            semitoneOffset: n.semitoneOffset,
+                          }}
+                          rootNote={pattern.rootNote}
+                          baseOctave={pattern.baseOctave + track.octaveShift}
+                          scale={pattern.scale}
+                          onChange={(v) =>
+                            updateExtraNote(i, k, {
+                              scaleDegree: v.scaleDegree,
+                              octaveOffset: v.octaveOffset,
+                              semitoneOffset: v.semitoneOffset,
+                            })
                           }
-                        >
-                          {Array.from({ length: len }, (_, d) => (
-                            <option key={d} value={d}>
-                              {d + 1}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="step__chord-oct">
-                          {n.octaveOffset > 0 ? `+${n.octaveOffset}` : n.octaveOffset}
-                        </span>
+                        />
                         <button
                           className="tiny"
                           onClick={() => removeExtraNote(i, k)}

@@ -38,6 +38,7 @@ export function degreeToMidi(
   scale: ScaleName,
   scaleDegree: number,
   octaveOffset: number,
+  semitoneOffset = 0,
 ): number {
   const intervals = SCALE_INTERVALS[scale];
   const len = intervals.length;
@@ -52,7 +53,13 @@ export function degreeToMidi(
     octWrap -= 1;
   }
   const interval = intervals[degree];
-  return (baseOctave + 1) * 12 + root + interval + (octWrap + octaveOffset) * 12;
+  return (
+    (baseOctave + 1) * 12 +
+    root +
+    interval +
+    (octWrap + octaveOffset) * 12 +
+    semitoneOffset
+  );
 }
 
 export function midiToName(midi: number): string {
@@ -66,7 +73,7 @@ export function midiToNearestDegree(
   root: number,
   baseOctave: number,
   scale: ScaleName,
-): { scaleDegree: number; octaveOffset: number } {
+): { scaleDegree: number; octaveOffset: number; semitoneOffset: number } {
   const intervals = SCALE_INTERVALS[scale];
   const rootMidi = (baseOctave + 1) * 12 + root;
   const rel = midi - rootMidi;
@@ -81,5 +88,69 @@ export function midiToNearestDegree(
       bestIdx = i;
     }
   }
-  return { scaleDegree: bestIdx, octaveOffset };
+  // semitoneOffset = skillnaden mellan inkommande halvton och närmsta skala-ton.
+  // Bevarar exakt MIDI-tonen även när skalan inte innehåller den.
+  const semitoneOffset = within - intervals[bestIdx];
+  return { scaleDegree: bestIdx, octaveOffset, semitoneOffset };
+}
+
+/**
+ * Parsar ett tonnamn ("C3", "F#4", "Bb2", "C", "1", "5") till en pitch-spec
+ * (scaleDegree + octaveOffset + semitoneOffset). Returnerar null vid ogiltig
+ * inmatning. Tonart/skala/oktav används för att placera resultatet i samma
+ * kontext som de befintliga stegen.
+ *
+ * - Bara siffra "1".."N" (där N = scaleLength): direkt scaleDegree, oktav 0
+ * - Tonnamn med oktav ("C3"): exakt MIDI → midiToNearestDegree
+ * - Tonnamn utan oktav ("C"): tolkas i samma oktav som baseOctave + degreeOctave
+ *   så användaren kan skriva "C" och få ung. samma rad som steget hade
+ */
+export function parseNoteInput(
+  input: string,
+  root: number,
+  baseOctave: number,
+  scale: ScaleName,
+  contextOctave = 0,
+): { scaleDegree: number; octaveOffset: number; semitoneOffset: number } | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  // Ren siffra → scale degree (1..N i UI:t = 0..N-1 internt)
+  if (/^\d+$/.test(trimmed)) {
+    const n = parseInt(trimmed, 10);
+    const len = SCALE_INTERVALS[scale].length;
+    if (n < 1 || n > len) return null;
+    return { scaleDegree: n - 1, octaveOffset: 0, semitoneOffset: 0 };
+  }
+
+  // Tonnamn: [A-G][#bs♯♭]?[oktav]?
+  const m = trimmed.match(/^([A-Ga-g])([#bs♯♭]?)(-?\d+)?$/);
+  if (!m) return null;
+  const letter = m[1].toUpperCase();
+  const accidental = m[2];
+  const octStr = m[3];
+
+  const letterToPc: Record<string, number> = {
+    C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
+  };
+  let pc = letterToPc[letter];
+  if (accidental === '#' || accidental === 's' || accidental === '♯') pc += 1;
+  else if (accidental === 'b' || accidental === '♭') pc -= 1;
+  pc = ((pc % 12) + 12) % 12;
+
+  // Om oktav anges: bygg MIDI direkt och hitta närmsta skalsteg + offset.
+  // Annars: placera i en oktav nära contextOctave (samma "rad" som steget hade)
+  // så drag/edit på ett step inte plötsligt hoppar fyra oktaver.
+  let midi: number;
+  if (octStr !== undefined) {
+    const oct = parseInt(octStr, 10);
+    midi = (oct + 1) * 12 + pc;
+  } else {
+    // baseOctave är t.ex. 3 → MIDI 60 är C4. Vi siktar på samma oktavband
+    // som steget redan har: baseOctave + contextOctave.
+    const targetOct = baseOctave + contextOctave;
+    midi = (targetOct + 1) * 12 + pc;
+  }
+
+  return midiToNearestDegree(midi, root, baseOctave, scale);
 }
