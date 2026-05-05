@@ -550,14 +550,16 @@ export class TrackFxChain {
     this.drySend.gain.value = 1 - sat * 0.35 - crusher * 0.5;
     this.delaySend.gain.value = delayMix * 0.85;
     this.reverbSend.gain.value = reverbSend * 0.9;
-    // Type-router: ramp:a den valda typens gain till 1 och övriga till 0.
-    // Kort ramp (~0.05 s) = ingen klick men inte heller hörbart smear vid byte.
-    const now = Tone.now();
+    // Type-router: sätt vald typ till 1 och övriga till 0. Direct .value-
+    // assignment (synkront) istället för ramp eftersom Web Audio:s
+    // linearRampToValueAtTime utan föregående setValueAtTime-anchor har
+    // odefinierat beteende — i vissa browser-implementationer rampar den
+    // aldrig och gain:en blir kvar på initialvärdet (= 0). Det skulle göra
+    // att reverb-routen är "död" oavsett send-nivå (säg-aldrig-igen-bug).
+    // Klick vid typ-byte är försumbar i praktiken eftersom mängd-slidern
+    // brukar vara på lugnt värde när användaren byter typ.
     for (const type of REVERB_TYPES) {
-      const target = type === reverbType ? 1 : 0;
-      const g = this.reverbTypeGains[type].gain;
-      g.cancelScheduledValues(now);
-      g.linearRampToValueAtTime(target, now + 0.05);
+      this.reverbTypeGains[type].gain.value = type === reverbType ? 1 : 0;
     }
     this.satSend.gain.value = sat;
     this.chorusSend.gain.value = chorus;
