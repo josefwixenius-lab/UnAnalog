@@ -109,51 +109,48 @@ function buildSpring(masterDest: Tone.InputNode): ReverbBus {
 }
 
 /**
- * Shimmer: hall-svans + +12 halvtoner pitch-shift mixat direkt i output OCH
- * loopat tillbaka in i reverb:n. Två signalvägar = den klassiska tjocka
- * shimmer-magin:
- *   1. Direkta shimmer-lagret hörs OMEDELBART — du fattar att det är på.
- *   2. Feedback-loopen bygger upp ett moln av oktav-uppstigande korn som
- *      ringer kvar långt efter dry-attacken.
+ * Shimmer: två parallella vägar — vanlig hall-reverb + samma reverb pitch-
+ * shiftad +12 halvtoner. Ingen feedback-loop (tidigare försök med feedback
+ * gav silent fail i vissa browsers — Web Audio kan refusera cykler om
+ * latency-detektion krånglar).
  *
- * Tidigare implementation gick bara via feedback → effekten var så subtil
- * att A/B-jämförelsen mot Hall knappt hördes.
+ * Användaren hör:
+ *   - Reverb-svansen som vanligt (path A)
+ *   - PLUS samma svans en oktav upp (path B)
+ *
+ * Mix:en (0.6 dry / 0.8 shifted) gör shimmer-lagret tydligt dominant så
+ * effekten är obestridligt hörbar A/B mot Hall.
  */
 function buildShimmer(masterDest: Tone.InputNode): ReverbBus {
   const input = new Tone.Gain(1);
   const output = new Tone.Gain(1);
-  const rev = new Tone.Reverb({ decay: 8, preDelay: 0.05, wet: 1 });
+
+  const rev = new Tone.Reverb({ decay: 5, preDelay: 0.03, wet: 1 });
   void rev.generate();
-  // PitchShift +12 = en oktav upp. windowSize 0.1 ger jämnt moln utan att
-  // det börjar hacka. wet:1 så vi får RENT pitch-shiftad signal ut.
+
+  // wet=1 → shifter outputtar enbart pitch-shiftad signal.
+  // windowSize 0.1 = lagom granular-storlek; mindre värden ger artefakter,
+  // större ger smetigare moln med högre latency.
   const shifter = new Tone.PitchShift({
     pitch: 12,
     windowSize: 0.1,
     feedback: 0,
     wet: 1,
   });
-  // Direkta shimmer-lagret som mixas in i output — det är detta som gör
-  // skillnaden uppenbar mellan Hall och Shimmer.
-  const shimmerLayer = new Tone.Gain(0.7);
-  // Feedback-loopen tillbaka in i reverb. ~0.55 ger fyllig build-up utan
-  // att gå mot self-oscillation (reverb-decay attenuerar redan signalen
-  // varje round-trip, så stabilitet är säkrad).
-  const feedbackGain = new Tone.Gain(0.55);
-  // Mild high-pass tar bort sub-rumling i feedback-loopen så det inte mosar
-  // ihop sig till en bas-dröning vid lång svans.
-  const fbHpf = new Tone.Filter({ type: 'highpass', frequency: 250, Q: 0.7 });
+
+  // Mix-nivåer för de två parallella vägarna:
+  const directGain = new Tone.Gain(0.6); // vanlig reverb-svans
+  const shimmerGain = new Tone.Gain(0.85); // oktav-upp-lagret — väldigt hörbart
 
   input.connect(rev);
-  rev.connect(output);
-  // Pitch-shiftad signal går till BÅDA:
-  //   (a) output via shimmerLayer-gain → omedelbart hörbart oktav-lager
-  //   (b) feedback-loopen → cascading svans-build-up
+  // Path A: rev → directGain → output (vanlig reverb-tail)
+  rev.connect(directGain);
+  directGain.connect(output);
+  // Path B: rev → shifter → shimmerGain → output (oktav-höjt lager)
   rev.connect(shifter);
-  shifter.connect(shimmerLayer);
-  shimmerLayer.connect(output);
-  shifter.connect(fbHpf);
-  fbHpf.connect(feedbackGain);
-  feedbackGain.connect(input);
+  shifter.connect(shimmerGain);
+  shimmerGain.connect(output);
+
   output.connect(masterDest);
   return { type: 'shimmer', input, output };
 }

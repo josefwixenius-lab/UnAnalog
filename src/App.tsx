@@ -428,14 +428,17 @@ export default function App() {
           return;
         }
       }
-      if (e.key === 'r' || e.key === 'R') {
+      // Släpp igenom Cmd/Ctrl/Alt/Shift+R så browsern kan göra hard-reload
+      // (Cmd+Shift+R) och liknande system-shortcuts. Bara plain "r" / "R"
+      // ska trigga Roll.
+      if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         rollPressedRef.current = true;
         setRolling(true);
       }
     };
     const onUp = (e: KeyboardEvent) => {
-      if (e.key === 'r' || e.key === 'R') {
+      if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         rollPressedRef.current = false;
         setRolling(false);
       }
@@ -1410,7 +1413,11 @@ export default function App() {
           webbläsaren.
         </small>
         <small className="app__copyright">
-          © {APP_META.year} {APP_META.owner} · {APP_META.name} v{APP_META.version} ·{' '}
+          © {APP_META.year} {APP_META.owner} · {APP_META.name} v{APP_META.version}{' '}
+          <span className="app__buildstamp" title="Bygg-stämpel — verifiera att webbläsaren har laddat senaste deployen">
+            ({__BUILD_TIME__})
+          </span>{' '}
+          ·{' '}
           <button className="link" onClick={() => setManualOpen(true)}>
             Öppna manual
           </button>
