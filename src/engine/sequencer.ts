@@ -78,6 +78,24 @@ function advance(
       else runtime.pitchDir = nextDir;
       return next;
     }
+    case 'pingpongHold': {
+      // Som pingpong men HÅLLER kvar på ändtonen ett extra steg → dubbla
+      // träffar på vändpunkterna (1-2-3-4-4-3-2-1). Skillnad mot pingpong:
+      // när cur+dir går utanför, returneras endpoint:en (inte len-2 / 1).
+      const cur2 = isGate ? runtime.gateDir : runtime.pitchDir;
+      let next = cur + cur2;
+      let nextDir: 1 | -1 = cur2;
+      if (next >= len) {
+        nextDir = -1;
+        next = len - 1; // håll kvar på sista index
+      } else if (next < 0) {
+        nextDir = 1;
+        next = 0; // håll kvar på första index
+      }
+      if (isGate) runtime.gateDir = nextDir;
+      else runtime.pitchDir = nextDir;
+      return next;
+    }
     case 'random':
       return Math.floor(Math.random() * len);
     case 'brownian': {

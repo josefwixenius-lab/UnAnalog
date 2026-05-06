@@ -89,16 +89,27 @@ export type MuteGroup = 'A' | 'B' | 'C' | 'D';
  * Mode A/B/C-väljaren. Att kunna köra ett spår baklänges eller ping-pong
  * mot ett annat ger massiv variation utan att man rör en enda step.
  *
- * - `forward`  : 0 → 1 → 2 → … → len-1 → 0  (default)
- * - `reverse`  : len-1 → len-2 → … → 0 → len-1
- * - `pingpong` : 0 → 1 → … → len-1 → len-2 → … → 1 → 0 → 1 → …
- *                Vänder vid kanterna (en full ping-pong tar 2*(len-1) steg).
- * - `random`   : varje step plockas slumpvis i hela längden — kan upprepa
- *                samma index, ger glitchy/oförutsägbar känsla
- * - `brownian` : random-walk (±1 eller står still per step) — tonerna
- *                vandrar runt utan att hoppa, "skälvande melodi"
+ * - `forward`      : 0 → 1 → 2 → … → len-1 → 0  (default)
+ * - `reverse`      : len-1 → len-2 → … → 0 → len-1
+ * - `pingpong`     : 0 → 1 → … → len-1 → len-2 → … → 1 → 0 → 1 → …
+ *                    Ren pendel, ändtoner spelas en gång (1-2-3-4-3-2-1).
+ *                    "Fram & tillbaka" — 2*(len-1) steg per cykel.
+ * - `pingpongHold` : 0 → 1 → … → len-1 → len-1 → … → 0 → 0 → 1 → …
+ *                    Dubbla ändtoner (1-2-3-4-4-3-2-1). Klassisk arp-ping-pong
+ *                    där ändtonerna får en extra träff = mer studs/accent på
+ *                    vändpunkten. 2*len steg per cykel.
+ * - `random`       : varje step plockas slumpvis i hela längden — kan upprepa
+ *                    samma index, ger glitchy/oförutsägbar känsla
+ * - `brownian`     : random-walk (±1 eller står still per step) — tonerna
+ *                    vandrar runt utan att hoppa, "skälvande melodi"
  */
-export type PlayDirection = 'forward' | 'reverse' | 'pingpong' | 'random' | 'brownian';
+export type PlayDirection =
+  | 'forward'
+  | 'reverse'
+  | 'pingpong'
+  | 'pingpongHold'
+  | 'random'
+  | 'brownian';
 
 export type LfoTarget = 'off' | 'volume' | 'filter';
 export type LfoShape = 'sine' | 'triangle' | 'square' | 'sawtooth';

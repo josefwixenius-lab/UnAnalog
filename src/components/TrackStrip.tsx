@@ -5,7 +5,8 @@ import { VOICE_LABELS } from '../engine/voices';
 const DIRECTION_OPTIONS: { id: PlayDirection; label: string; hint: string }[] = [
   { id: 'forward', label: '▶ Framåt', hint: 'Standardriktning — 0, 1, 2, …, len-1, 0, …' },
   { id: 'reverse', label: '◀ Bakåt', hint: 'Spelar baklänges — len-1, len-2, …, 1, 0, len-1, …' },
-  { id: 'pingpong', label: '↔ Fram & tillbaka', hint: 'Studsar fram och tillbaka mellan ändarna utan att dubbla ändtonerna' },
+  { id: 'pingpong', label: '↔ Fram & tillbaka', hint: 'Pendel utan dubbla ändtoner: 1-2-3-4-3-2-1' },
+  { id: 'pingpongHold', label: '⇆ Ping-pong', hint: 'Dubbla ändtoner — accent/studs på vändpunkten: 1-2-3-4-4-3-2-1' },
   { id: 'random', label: '🎲 Slump', hint: 'Plockar ett random index varje step' },
   { id: 'brownian', label: '➰ Brownian', hint: 'Random walk — vandrar ±1 utan stora hopp' },
 ];

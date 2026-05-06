@@ -85,6 +85,17 @@ function advance(
       }
       return next;
     }
+    case 'pingpongHold': {
+      let next = cur + state.pingDir;
+      if (next >= len) {
+        state.pingDir = -1;
+        next = len - 1;
+      } else if (next < 0) {
+        state.pingDir = 1;
+        next = 0;
+      }
+      return next;
+    }
     case 'random':
       return Math.floor(Math.random() * len);
     case 'brownian': {
